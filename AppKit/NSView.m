@@ -89,6 +89,7 @@ static void disownLayer(NSView *self, CALayer *layer) {
 @synthesize identifier = _identifier;
 @synthesize translatesAutoresizingMaskIntoConstraints = _translatesAutoresizingMaskIntoConstraints;
 @synthesize appearance = _appearance;
+@synthesize clipsToBounds = _clipsToBounds;
 
 static BOOL NSViewLayersEnabled = YES;
 static BOOL NSShowAllViews = NO;
@@ -243,6 +244,7 @@ typedef struct __VFlags {
         // alternative for enabling it when it should be.
         _autoresizesSubviews = YES;
         _isHidden = (vFlags & 0x80000000) ? YES : NO;
+        _clipsToBounds = [keyed decodeBoolForKey: @"IBNSClipsToBounds"];
         _tag = 0; // IB assigns a default tag id of 0 - which is different from
                   // the default in the docs.
         if ([keyed containsValueForKey: @"NSTag"])

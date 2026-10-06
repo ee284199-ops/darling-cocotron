@@ -139,10 +139,13 @@ APPKIT_EXPORT const NSViewFullScreenModeOptionKey NSFullScreenModeApplicationPre
     NSLayoutPriority _verticalContentCompressionResistancePriority;
 
     NSAppearance *_appearance;
+    BOOL _clipsToBounds;
 }
 
 @property(class, readonly) BOOL requiresConstraintBasedLayout;
 @property BOOL translatesAutoresizingMaskIntoConstraints;
+// public since macOS 14, but around (and called by apps) since 10.9
+@property BOOL clipsToBounds;
 
 + (NSView *) focusView;
 + (NSMenu *) defaultMenu;
