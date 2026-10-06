@@ -111,7 +111,8 @@ enum {
             return check;
     }
 
-    return [screens objectAtIndex: 0]; // should not happen
+    // should not happen, unless there is no display at all
+    return (count > 0) ? [screens objectAtIndex: 0] : nil;
 }
 
 #if 0

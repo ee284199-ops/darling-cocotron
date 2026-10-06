@@ -206,7 +206,8 @@ static void socketCallback(CFSocketRef s, CFSocketCallBackType type,
 
         screen = XRRGetScreenResources(_display, DefaultRootWindow(_display));
         NSMutableArray<NSScreen *> *retval =
-                [NSMutableArray arrayWithCapacity: screen->noutput];
+                [NSMutableArray arrayWithCapacity: screen->noutput + 1];
+        BOOL anyActive = NO;
 
         Atom edidAtom = XInternAtom(_display, "EDID", FALSE);
 
@@ -216,6 +217,8 @@ static void socketCallback(CFSocketRef s, CFSocketCallBackType type,
             NSScreen *nsscreen;
 
             if (oinfo->crtc) {
+                anyActive = YES;
+
                 XRRCrtcInfo *crtc =
                         XRRGetCrtcInfo(_display, screen, oinfo->crtc);
                 NSRect frame =
@@ -237,6 +240,8 @@ static void socketCallback(CFSocketRef s, CFSocketCallBackType type,
                     if (prop && nitems > 0)
                         [nsscreen setEdid: [NSData dataWithBytes: prop
                                                           length: nitems]];
+                    if (prop)
+                        XFree(prop);
                 }
 
                 XRRFreeCrtcInfo(crtc);
@@ -253,6 +258,21 @@ static void socketCallback(CFSocketRef s, CFSocketCallBackType type,
         }
 
         XRRFreeScreenResources(screen);
+
+        // With no active output at all (e.g. every monitor is switched off and the
+        // compositor carries on headless), still report the X screen itself, since
+        // AppKit can't open a window without a screen. It goes last so that display
+        // IDs keep matching RandR output indices.
+        if (!anyActive) {
+            NSRect frame = NSMakeRect(
+                    0, 0, DisplayWidth(_display, DefaultScreen(_display)),
+                    DisplayHeight(_display, DefaultScreen(_display)));
+            NSScreen *nsscreen =
+                    [[[NSScreen alloc] initWithFrame: frame
+                                        visibleFrame: frame] autorelease];
+            [nsscreen setCgDirectDisplayID: [retval count] + 1];
+            [retval addObject: nsscreen];
+        }
 
         NSArray* array = [NSArray arrayWithArray: retval];
         _lastScreens = [array retain];

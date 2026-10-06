@@ -2138,8 +2138,12 @@ static BOOL _allowsAutomaticWindowTabbing;
 
 - (void) center {
     NSScreen *screen = [self screen];
-    if (screen == nil)
-        screen = [NSScreen screens][0];
+    if (screen == nil) {
+        NSArray *screens = [NSScreen screens];
+        if ([screens count] == 0)
+            return; // no display at all, so there is nothing to center on
+        screen = [screens objectAtIndex: 0];
+    }
 
     NSRect screenFrame = [screen frame];
 

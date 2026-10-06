@@ -42,14 +42,28 @@ NSNotificationName const NSScreenColorSpaceDidChangeNotification = @"NSScreenCol
 + (NSScreen *) mainScreen {
     NSScreen *result = [[NSApp keyWindow] screen];
 
-    if (result == nil)
-        result = [[self screens] objectAtIndex: 0];
+    if (result == nil) {
+        NSArray *screens = [self screens];
+
+        if ([screens count] > 0)
+            result = [screens objectAtIndex: 0];
+    }
 
     return result;
 }
 
 + (NSArray *) screens {
-    return [[NSDisplay currentDisplay] screens];
+    // NSDisplay lists every output, inactive ones included, because CoreGraphics
+    // maps display IDs to positions in that list. Like macOS, only report the
+    // displays that are actually in use.
+    NSMutableArray *screens = [NSMutableArray array];
+
+    for (NSScreen *screen in [[NSDisplay currentDisplay] screens]) {
+        if (!NSIsEmptyRect([screen frame]))
+            [screens addObject: screen];
+    }
+
+    return screens;
 }
 
 - (NSWindowDepth) depth {

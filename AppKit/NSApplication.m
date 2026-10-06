@@ -1297,8 +1297,12 @@ NSApplication *NSApp = nil;
 
 - (void) arrangeInFront: sender {
 #define CASCADE_DELTA 20 // ? isn't there a call for this?
+    NSArray *screens = [NSScreen screens];
+    if ([screens count] == 0)
+        return; // no display to arrange the windows on
+
     NSMutableArray *visibleWindows = [NSMutableArray new];
-    NSRect rect = [[[NSScreen screens] objectAtIndex: 0] frame], winRect;
+    NSRect rect = [[screens objectAtIndex: 0] frame], winRect;
     NSArray *windowsItems = [[self windowsMenu] itemArray];
     int i, count = [windowsItems count];
 
