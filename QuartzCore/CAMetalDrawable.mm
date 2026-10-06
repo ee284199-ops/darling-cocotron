@@ -605,8 +605,6 @@ void CAMetalDrawableActual::present() {
 			return;
 		}
 
-		[layer queuePresent: _drawableID];
-
 		_semaphore = _texture->synchronizePresentation();
 
 		if (_semaphore) {
@@ -634,6 +632,10 @@ void CAMetalDrawableActual::present() {
 
 			CGLSetCurrentContext(prev);
 		}
+
+		// queue it only now: once it's queued, the layer may render it (in `synchronizeRender`) at any time,
+		// and that needs the semaphore imported above
+		[layer queuePresent: _drawableID];
 	}
 }
 

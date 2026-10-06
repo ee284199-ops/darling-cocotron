@@ -68,6 +68,22 @@ const NSViewFullScreenModeOptionKey NSFullScreenModeApplicationPresentationOptio
 - (void) _trackingAreasChanged;
 @end
 
+// As on macOS, a view is the (unretained) delegate of its layer. -displayLayer: below turns a
+// layer's -display into -display on the view; that is how a CAMetalLayer gets a presented
+// drawable onto the screen. A layer that already has a delegate of its own keeps it.
+@interface NSView (NSView_CALayerDelegate) <CALayerDelegate>
+@end
+
+static void adoptLayer(NSView *self, CALayer *layer) {
+    if ([layer delegate] == nil)
+        [layer setDelegate: self];
+}
+
+static void disownLayer(NSView *self, CALayer *layer) {
+    if ([layer delegate] == self)
+        [layer setDelegate: nil];
+}
+
 @implementation NSView
 
 @synthesize identifier = _identifier;
@@ -454,6 +470,7 @@ typedef struct __VFlags {
     if (_rectsBeingRedrawn != NULL) {
         NSZoneFree(NULL, _rectsBeingRedrawn);
     }
+    disownLayer(self, _layer);
     [_layer release];
 
     [_layerContext invalidate];
@@ -1846,6 +1863,7 @@ static inline void buildTransformsIfNeeded(NSView *self) {
         // implicitly or explicitly The distinction appears to be based on the
         // layers class, not how it was set (host vs. backing)
         if ([_layer isKindOfClass: [NSViewBackingLayer class]]) {
+            disownLayer(self, _layer);
             [_layer release];
             _layer = nil;
         }
@@ -1860,6 +1878,7 @@ static inline void buildTransformsIfNeeded(NSView *self) {
 
     if (_layer == nil) {
         _layer = [[self makeBackingLayer] retain];
+        adoptLayer(self, _layer);
         configureLayerGeometry(self);
     }
 
@@ -1895,16 +1914,20 @@ static inline void buildTransformsIfNeeded(NSView *self) {
         if (_layer == nil) {
             if (value != nil) {
                 _layer = value;
+                adoptLayer(self, _layer);
                 [self _addLayerToSuperlayer];
             }
         } else if (value == nil) {
             [self _removeLayerFromSuperlayer];
+            disownLayer(self, _layer);
             [_layer release];
             _layer = nil;
         } else {
             [[_superview layer] replaceSublayer: _layer with: value];
+            disownLayer(self, _layer);
             [_layer release];
             _layer = value;
+            adoptLayer(self, _layer);
         }
 
         [_subviews

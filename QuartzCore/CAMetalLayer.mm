@@ -417,9 +417,15 @@ static void reportGLErrors(void) {
 
 	// we now need to schedule a render
 	//
-	// FIXME: once we fix up CALayer and make it more featureful, this needs to change to `self.needsDisplay = YES` or equivalently `[self setNeedsDisplay: YES]`
+	// `display` asks our delegate (the view) to redisplay, which renders us through `prepareRender`.
+	// that has to happen on the main thread like the rest of the view drawing, and not from inside
+	// the `commit` that presented this drawable, which can run on any thread.
+	//
+	// FIXME: once we fix up CALayer and make it more featureful, this should become `[self setNeedsDisplay]`.
 	// right now, CALayer is missing all the needs-display logic (which is currently in NSView)
-	[self display];
+	[self performSelectorOnMainThread: @selector(display)
+	                       withObject: nil
+	                    waitUntilDone: NO];
 }
 
 - (void)releaseDrawable: (NSUInteger)drawableID
