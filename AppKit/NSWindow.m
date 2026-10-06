@@ -3463,7 +3463,9 @@ static BOOL _allowsAutomaticWindowTabbing;
 }
 
 - (CGSubWindow *) _createSubWindowWithFrame: (CGRect) frame {
-    return [_platformWindow createSubWindowWithFrame: frame];
+    // a layer-backed view can be added before the window is first shown,
+    // when the platform window doesn't exist yet
+    return [[self platformWindow] createSubWindowWithFrame: frame];
 }
 
 + (BOOL) allowsAutomaticWindowTabbing {
