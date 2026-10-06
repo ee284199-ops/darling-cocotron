@@ -139,7 +139,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     _isContinuous = YES; // NSCell defaults to NO, NSSliderCell defaults to YES
     _type = NSLinearSlider;
     _minValue = 0;
-    _maxValue = 0;
+    _maxValue = 1; // like AppKit; with 0, a slider made in code can't hold a value or show its knob
     _altIncrementValue = 0;
     _isVertical = -1;
     _lastRect = NSZeroRect;
@@ -154,7 +154,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     _isContinuous = YES; // NSCell defaults to NO, NSSliderCell defaults to YES
     _type = NSLinearSlider;
     _minValue = 0;
-    _maxValue = 0;
+    _maxValue = 1; // like AppKit; with 0, a slider made in code can't hold a value or show its knob
     _altIncrementValue = 0;
     _isVertical = -1;
     _lastRect = NSZeroRect;
