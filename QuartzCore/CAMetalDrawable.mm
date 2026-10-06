@@ -498,6 +498,15 @@ void CAMetalDrawableTexture::replaceRegion(Indium::Region region, size_t mipmapL
 	abort();
 };
 
+void CAMetalDrawableTexture::getBytes(void* bytes, size_t bytesPerRow, Indium::Region region, size_t mipmapLevel) {
+	return getBytes(bytes, bytesPerRow, 0, region, mipmapLevel, 0);
+};
+
+void CAMetalDrawableTexture::getBytes(void* bytes, size_t bytesPerRow, size_t bytesPerImage, Indium::Region region, size_t mipmapLevel, size_t slice) {
+	// the drawable's image stays in the general layout, so we can copy straight out of it
+	copyBytesFromImage(bytes, bytesPerRow, bytesPerImage, region, mipmapLevel, slice);
+};
+
 void CAMetalDrawableTexture::precommit(std::shared_ptr<Indium::PrivateCommandBuffer> cmdbuf) {
 	// TODO: check if we need a barrier for the internal image as well; we probably do.
 	//       we might even need a separate semaphore for it.
