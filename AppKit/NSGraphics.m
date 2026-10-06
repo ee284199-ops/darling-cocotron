@@ -163,6 +163,16 @@ void NSRectFillUsingOperation(NSRect rect, NSCompositingOperation op) {
     NSRectFillListUsingOperation(&rect, 1, op);
 }
 
+void NSRectFillListWithColorsUsingOperation(const NSRect *rects,
+                                            NSColor *const *colors,
+                                            NSInteger count,
+                                            NSCompositingOperation operation) {
+    for (NSInteger i = 0; i < count; i++) {
+        [colors[i] setFill];
+        NSRectFillUsingOperation(rects[i], operation);
+    }
+}
+
 void NSFrameRectWithWidth(NSRect rect, CGFloat width) {
     NSFrameRectWithWidthUsingOperation(rect, width, NSCompositeCopy);
 }

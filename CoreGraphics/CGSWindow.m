@@ -101,6 +101,13 @@ CGError CGSSetWindowTitle(CGSConnectionID cid, CGSWindowID wid,
     return CGSSetWindowProperty(cid, wid, kCGSWindowTitle, title);
 }
 
+CGError CGSSetWindowBackgroundBlurRadius(CGSConnectionID cid, CGSWindowID wid,
+                                         int radius)
+{
+    // Blurring is not supported, but report success so that callers don't bail out.
+    return kCGSErrorSuccess;
+}
+
 CFArrayRef __nullable CGWindowListCreate(CGWindowListOption option, CGWindowID relativeToWindow)
 {
     printf("STUB %s\n", __PRETTY_FUNCTION__);

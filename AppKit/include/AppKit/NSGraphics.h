@@ -110,6 +110,10 @@ NSRectFillListUsingOperation(const NSRect *rects, int count,
                              NSCompositingOperation operation);
 APPKIT_EXPORT void NSRectFillUsingOperation(NSRect rect,
                                             NSCompositingOperation operation);
+APPKIT_EXPORT void
+NSRectFillListWithColorsUsingOperation(const NSRect *rects,
+                                       NSColor *const *colors, NSInteger count,
+                                       NSCompositingOperation operation);
 
 APPKIT_EXPORT void NSFrameRectWithWidth(NSRect rect, CGFloat width);
 APPKIT_EXPORT void

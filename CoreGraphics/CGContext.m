@@ -40,6 +40,14 @@ void CGContextBeginTransparencyLayer(CGContextRef context,
     O2ContextBeginTransparencyLayer((O2ContextRef)context, (NSDictionary *) unused);
 }
 
+void CGContextBeginTransparencyLayerWithRect(CGContextRef context, CGRect rect,
+                                             CFDictionaryRef auxiliaryInfo)
+{
+    // The rect merely hints at the area that is going to be drawn into,
+    // so this is the same as beginning a transparency layer.
+    CGContextBeginTransparencyLayer(context, auxiliaryInfo);
+}
+
 void CGContextEndTransparencyLayer(CGContextRef context) {
     O2ContextEndTransparencyLayer((O2ContextRef)context);
 }

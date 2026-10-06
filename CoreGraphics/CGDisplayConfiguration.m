@@ -9,3 +9,7 @@ CGError CGDisplayRemoveReconfigurationCallback(CGDisplayReconfigurationCallBack 
     printf("STUB %s\n", __PRETTY_FUNCTION__);
     return kCGErrorSuccess;
 }
+
+void CGRestorePermanentDisplayConfiguration(void) {
+    // Darling never changes the display configuration, so there is nothing to restore.
+}

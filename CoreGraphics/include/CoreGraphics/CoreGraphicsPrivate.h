@@ -85,6 +85,7 @@ extern CGError CGSGetScreenRectForWindow(CGSConnectionID cid, CGSWindowID wid, C
 
 extern const CFStringRef kCGSWindowTitle;
 extern CGError CGSSetWindowTitle(CGSConnectionID cid, CGSWindowID wid, CFStringRef title);
+extern CGError CGSSetWindowBackgroundBlurRadius(CGSConnectionID cid, CGSWindowID wid, int radius);
 extern CGError CGSGetWindowProperty(CGSConnectionID cid, CGSWindowID wid, CFStringRef key, CFTypeRef *outValue);
 extern CGError CGSSetWindowProperty(CGSConnectionID cid, CGSWindowID wid, CFStringRef key, CFTypeRef value);
 
