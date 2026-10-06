@@ -408,6 +408,23 @@ static void reportGLErrors(void) {
 	return [[[CAMetalDrawableInternal alloc] initWithLayer: self drawable: drawable] autorelease];
 }
 
+- (void)_renderPresentedDrawable
+{
+	if (_context != nil) {
+		// only our layer context needs to render again (`prepareRender` picks up the drawable there).
+		// redisplaying the view would also flush the window's own contents: a second buffer swap
+		// per frame, which halves the frame rate when swaps wait for vsync.
+		[_context render];
+		[_context flush];
+	} else {
+		// `display` asks our delegate (the view) to redisplay.
+		//
+		// FIXME: once we fix up CALayer and make it more featureful, this should become `[self setNeedsDisplay]`.
+		// right now, CALayer is missing all the needs-display logic (which is currently in NSView)
+		[self display];
+	}
+}
+
 - (void)queuePresent: (NSUInteger)drawableID
 {
 	[_drawableCondition lock];
@@ -415,17 +432,17 @@ static void reportGLErrors(void) {
 	++_queuedDrawableCount;
 	[_drawableCondition unlock];
 
-	// we now need to schedule a render
-	//
-	// `display` asks our delegate (the view) to redisplay, which renders us through `prepareRender`.
-	// that has to happen on the main thread like the rest of the view drawing, and not from inside
-	// the `commit` that presented this drawable, which can run on any thread.
-	//
-	// FIXME: once we fix up CALayer and make it more featureful, this should become `[self setNeedsDisplay]`.
-	// right now, CALayer is missing all the needs-display logic (which is currently in NSView)
-	[self performSelectorOnMainThread: @selector(display)
-	                       withObject: nil
-	                    waitUntilDone: NO];
+	// we now need to render it, on the main thread like the rest of the layer rendering.
+	// a drawable presented on the main thread is rendered right away: if that waited for the run loop,
+	// the next frame's `nextDrawable` could run first, and with every drawable still waiting to be
+	// rendered (and recycled), it would block until it timed out.
+	if ([NSThread isMainThread]) {
+		[self _renderPresentedDrawable];
+	} else {
+		[self performSelectorOnMainThread: @selector(_renderPresentedDrawable)
+		                       withObject: nil
+		                    waitUntilDone: NO];
+	}
 }
 
 - (void)releaseDrawable: (NSUInteger)drawableID
