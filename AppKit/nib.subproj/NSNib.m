@@ -19,6 +19,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 #import "NSCustomObject.h"
 #import "NSIBObjectData.h"
+#import "NSNibArchiveUnarchiver.h"
 #import "NSNibHelpConnector.h"
 #import <AppKit/NSApplication.h>
 #import <AppKit/NSMenu.h>
@@ -27,6 +28,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSRaise.h>
 #import <AppKit/NSTableCornerView.h>
 #import <Foundation/NSKeyedArchiver.h>
+#import <Foundation/NSProcessInfo.h>
 #import <Foundation/NSURL.h>
 
 NSString *const NSNibOwner = @"NSOwner";
@@ -63,6 +65,46 @@ NSString *const NSNibTopLevelObjects = @"NSNibTopLevelObjects";
     return self;
 }
 
+/*
+  Xcode puts one compiled copy of the nib per minimum system version into a .nib
+  directory, named keyedobjects-<version>.nib (keyedobjects-101400.nib for macOS
+  10.14, keyedobjects-110000.nib for 11.0). Use the newest one the running system
+  can take, or the oldest one if there's none.
+ */
++ (NSString *) _versionedKeyedObjectsInDirectory: (NSString *) directory {
+    NSArray *contents =
+            [[NSFileManager defaultManager] contentsOfDirectoryAtPath: directory
+                                                                error: NULL];
+    NSOperatingSystemVersion system =
+            [[NSProcessInfo processInfo] operatingSystemVersion];
+    NSInteger systemVersion = system.majorVersion * 10000 +
+                              system.minorVersion * 100 + system.patchVersion;
+    NSString *best = nil, *oldest = nil;
+    NSInteger bestVersion = -1, oldestVersion = NSIntegerMax;
+
+    for (NSString *name in contents) {
+        if (![name hasPrefix: @"keyedobjects-"] ||
+            ![[name pathExtension] isEqualToString: @"nib"])
+            continue;
+
+        NSInteger version = [[[name stringByDeletingPathExtension]
+                substringFromIndex: [@"keyedobjects-" length]] integerValue];
+
+        if (version <= systemVersion && version > bestVersion) {
+            best = name;
+            bestVersion = version;
+        }
+        if (version < oldestVersion) {
+            oldest = name;
+            oldestVersion = version;
+        }
+    }
+
+    if (best == nil)
+        best = oldest;
+    return best ? [directory stringByAppendingPathComponent: best] : nil;
+}
+
 - initWithContentsOfFile: (NSString *) path {
 
     NIBDEBUG(@"initWithContentsOfFile: %@", path);
@@ -80,6 +122,8 @@ NSString *const NSNibTopLevelObjects = @"NSNibTopLevelObjects";
                 stringByAppendingPathExtension: @"nib"];
 
         if ([[NSFileManager defaultManager] fileExistsAtPath: objects])
+            _flags._isKeyed = TRUE;
+        else if ((objects = [NSNib _versionedKeyedObjectsInDirectory: path]) != nil)
             _flags._isKeyed = TRUE;
         else
             objects = [[path stringByAppendingPathComponent: @"objects"]
@@ -176,7 +220,19 @@ NSString *const NSNibTopLevelObjects = @"NSNibTopLevelObjects";
         NSMenu *menu;
         NSArray *topLevelObjects;
 
-        if (_flags._isKeyed) {
+        if (_flags._isKeyed && [NSNibArchiveUnarchiver isNibArchive: _data]) {
+            // nibs compiled by Xcode for the last decade
+            NSNibArchiveUnarchiver *archive;
+            unarchiver = archive = [[[NSNibArchiveUnarchiver alloc]
+                    initForReadingWithData: _data] autorelease];
+            [archive setDelegate: self];
+            [archive setClass: [NSTableCornerView class]
+                    forClassName: @"_NSCornerView"];
+            [archive setClass: [NSNibHelpConnector class]
+                    forClassName: @"NSIBHelpConnector"];
+
+            objectData = [archive decodeObjectForKey: @"IB.objectdata"];
+        } else if (_flags._isKeyed) {
             NSKeyedUnarchiver *keyed;
             unarchiver = keyed = [[[NSKeyedUnarchiver alloc]
                     initForReadingWithData: _data] autorelease];

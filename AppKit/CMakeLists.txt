@@ -158,6 +158,7 @@ set(AppKit_sources
 	nib.subproj/NSNibExternalObjectPlaceholder.m
 	nib.subproj/NSIBHelpConnector.m
 	nib.subproj/UINibCoding.m
+	nib.subproj/NSNibArchiveUnarchiver.m
 
 	NSTextFieldCell.m
 	NSFormCell.m
