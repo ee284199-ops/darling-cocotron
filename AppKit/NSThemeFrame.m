@@ -103,12 +103,14 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
                           styleMask: [[self window] styleMask]];
 
     // If the class thinks there is a menu but the instance does not want an
-    // instance we need to add the menu height back to the content view as
+    // instance, or its menu is hidden (as it is while the window is modal), we
+    // need to add the menu height back to the content view as
     // contentRectForFrameRect subtracts it
 
     if ([[[self window] class]
                 hasMainMenuForStyleMask: [[self window] styleMask]]) {
-        if (![[self window] hasMainMenu])
+        if (![[self window] hasMainMenu] || menuView == nil ||
+            [menuView isHidden])
             contentFrame.size.height += [NSMainMenuView menuHeight];
     }
 

@@ -459,7 +459,14 @@ static BOOL _allowsAutomaticWindowTabbing;
     _styleMask = mask;
     [_platformWindow setStyleMask: _styleMask];
 
-    [self _hideMenuViewIfNeeded];
+    // The menu bar comes and goes with the title bar; a modal window keeps it
+    // hidden until its session ends.
+    if ([self hasMainMenu] && [NSApp modalWindow] != self) {
+        [self _showMenuViewIfNeeded];
+    } else if (_menuView != nil && ![_menuView isHidden]) {
+        [_menuView setHidden: YES];
+        [self _resizeWithOldMenuViewSize: [_menuView frame].size];
+    }
 
     [_backgroundView resizeSubviewsWithOldSize: [_backgroundView frame].size];
     [_backgroundView setNeedsDisplay: YES]; // FIXME: verify this is done
