@@ -926,7 +926,13 @@ NSApplication *NSApp = nil;
 }
 
 - (void) activateIgnoringOtherApps: (BOOL) flag {
-    NSUnimplementedMethod();
+    // there's no other application to take the focus from here, so this only
+    // brings the window that should have it forward
+    NSWindow *window = [self keyWindow];
+
+    if (window == nil)
+        window = [self mainWindow];
+    [window makeKeyAndOrderFront: self];
 }
 
 - (void) deactivate {
