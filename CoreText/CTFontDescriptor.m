@@ -213,43 +213,6 @@ static NSDictionary *KTFontAttributesFromFcPattern(FcPattern *pattern) {
     return attributes;
 }
 
-// macOS fonts that Linux systems don't have, and the fontconfig family that stands in for them.
-// fontconfig's own configuration already maps Helvetica, Arial, Times and Courier to
-// metric-compatible fonts; these it would replace with the locale's default sans-serif font.
-static const struct {
-    const char *family;
-    const char *generic;
-} KTFontGenericFallbacks[] = {
-    { "Menlo", "monospace" },
-    { "Monaco", "monospace" },
-    { "SF Mono", "monospace" },
-    { "Andale Mono", "monospace" },
-    { "PT Mono", "monospace" },
-    { ".AppleSystemUIFont", "sans-serif" },
-    { ".SF NS", "sans-serif" },
-    { "SF Pro", "sans-serif" },
-    { "SF Pro Text", "sans-serif" },
-    { "SF Pro Display", "sans-serif" },
-    { "San Francisco", "sans-serif" },
-    { "Helvetica Neue", "sans-serif" },
-    { "Lucida Grande", "sans-serif" },
-    { "Geneva", "sans-serif" },
-    { "Avenir", "sans-serif" },
-    { "Avenir Next", "sans-serif" },
-    { "New York", "serif" },
-    { "Georgia", "serif" },
-    { "Palatino", "serif" },
-};
-
-static const char *KTFontGenericFallback(NSString *family) {
-    size_t i;
-
-    for (i = 0; i < sizeof(KTFontGenericFallbacks) / sizeof(KTFontGenericFallbacks[0]); i++) {
-        if ([family caseInsensitiveCompare: [NSString stringWithUTF8String: KTFontGenericFallbacks[i].family]] == NSOrderedSame)
-            return KTFontGenericFallbacks[i].generic;
-    }
-    return NULL;
-}
 
 // build a fontconfig query pattern from a descriptor's attributes
 static FcPattern *KTFontPatternFromAttributes(NSDictionary *attributes) {
@@ -268,11 +231,8 @@ static FcPattern *KTFontPatternFromAttributes(NSDictionary *attributes) {
     }
 
     if (family != nil) {
-        const char *generic = KTFontGenericFallback(family);
-
         FcPatternAddString(pattern, FC_FAMILY, KTFcChar8FromString(family));
-        if (generic != NULL)
-            FcPatternAddString(pattern, FC_FAMILY, (const FcChar8 *) generic);
+        O2FontAddFallbackFamilies(pattern, family);
     }
 
     {

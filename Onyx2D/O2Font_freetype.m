@@ -6,6 +6,7 @@
 #import <Foundation/NSLock.h>
 #include <dispatch/dispatch.h>
 #include <fcntl.h>
+#include <pthread.h>
 #include <limits.h>
 #include <stdio.h>
 #include <string.h>
@@ -26,6 +27,28 @@ O2FontRef O2FontCreateWithDataProvider_platform(O2DataProviderRef provider) {
 }
 
 #endif
+
+static pthread_mutex_t O2FontFreeTypeMutex;
+
+static void O2FontFreeTypeMutexInit(void) {
+    pthread_mutexattr_t attributes;
+
+    pthread_mutexattr_init(&attributes);
+    pthread_mutexattr_settype(&attributes, PTHREAD_MUTEX_RECURSIVE);
+    pthread_mutex_init(&O2FontFreeTypeMutex, &attributes);
+    pthread_mutexattr_destroy(&attributes);
+}
+
+void O2FontFreeTypeLock(void) {
+    static pthread_once_t once = PTHREAD_ONCE_INIT;
+
+    pthread_once(&once, O2FontFreeTypeMutexInit);
+    pthread_mutex_lock(&O2FontFreeTypeMutex);
+}
+
+void O2FontFreeTypeUnlock(void) {
+    pthread_mutex_unlock(&O2FontFreeTypeMutex);
+}
 
 FT_Library O2FontSharedFreeTypeLibrary() {
     static FT_Library library = NULL;
@@ -87,6 +110,7 @@ FT_Error O2FontFreeTypeNewFace(const char *path, FT_Long index, FT_Face *face) {
     if (data == nil)
         return FT_Err_Cannot_Open_Resource;
 
+    O2FontFreeTypeLockScope();
     return FT_New_Memory_Face(O2FontSharedFreeTypeLibrary(), [data bytes],
                               (FT_Long) [data length], index, face);
 }
@@ -127,32 +151,6 @@ FcConfig *O2FontSharedFontConfig() {
     return fontConfig;
 }
 
-+ (NSString *) filenameForPattern: (NSString *) pattern {
-    FcConfig *config = O2FontSharedFontConfig();
-
-    FcPattern *pat = FcNameParse((unsigned char *) [pattern UTF8String]);
-    FcConfigSubstitute(config, pat, FcMatchPattern);
-    FcDefaultSubstitute(pat);
-
-    FcResult fcResult;
-    FcPattern *match = FcFontMatch(config, pat, &fcResult);
-    FcPatternDestroy(pat);
-    if (match == NULL) {
-        return nil;
-    }
-
-    FcChar8 *filename = NULL;
-    FcPatternGetString(match, FC_FILE, 0, &filename);
-
-    NSString *res = nil;
-    if (filename != NULL) {
-        res = [NSString stringWithUTF8String: (char *) filename];
-    }
-
-    FcPatternDestroy(match);
-    return res;
-}
-
 - (instancetype) initWithDataProvider: (O2DataProviderRef) provider {
     self = [super initWithDataProvider: provider];
     if (self == nil) {
@@ -163,8 +161,10 @@ FcConfig *O2FontSharedFontConfig() {
     size_t length = [provider length];
 
     FT_Face face;
+    O2FontFreeTypeLock();
     int error = FT_New_Memory_Face(O2FontSharedFreeTypeLibrary(), bytes, length,
                                    0, &face);
+    O2FontFreeTypeUnlock();
 
     if (error != 0) {
         NSLog(@"FT_New_Memory_Face() = %d", error);
@@ -175,12 +175,209 @@ FcConfig *O2FontSharedFontConfig() {
     return [self initWithFace: face];
 }
 
+// macOS fonts that Linux systems don't have, and the fontconfig family that stands in for them.
+// fontconfig's own configuration already maps Helvetica, Arial, Times and Courier to
+// metric-compatible fonts; these it would replace with the locale's default sans-serif font.
+static const struct {
+    const char *family;
+    const char *generic;
+} O2FontGenericFallbacks[] = {
+    { "Menlo", "monospace" },
+    { "Monaco", "monospace" },
+    { "SF Mono", "monospace" },
+    { "Andale Mono", "monospace" },
+    { "PT Mono", "monospace" },
+    { ".AppleSystemUIFont", "sans-serif" },
+    { ".AppleSystemUIFontMonospaced", "monospace" },
+    { ".SF NS", "sans-serif" },
+    { ".SF NS Text", "sans-serif" },
+    { ".SF NS Display", "sans-serif" },
+    { ".SF NS Mono", "monospace" },
+    { ".SFNS", "sans-serif" },
+    { ".SFNSText", "sans-serif" },
+    { ".SFNSDisplay", "sans-serif" },
+    { ".SFNSMono", "monospace" },
+    { "SF Pro", "sans-serif" },
+    { "SF Pro Text", "sans-serif" },
+    { "SF Pro Display", "sans-serif" },
+    { "San Francisco", "sans-serif" },
+    { "Helvetica Neue", "sans-serif" },
+    { "HelveticaNeue", "sans-serif" },
+    { "Lucida Grande", "sans-serif" },
+    { "LucidaGrande", "sans-serif" },
+    { "Geneva", "sans-serif" },
+    { "Avenir", "sans-serif" },
+    { "Avenir Next", "sans-serif" },
+    { "AvenirNext", "sans-serif" },
+    { "New York", "serif" },
+    { "Georgia", "serif" },
+    { "Palatino", "serif" },
+};
+
+const char *O2FontGenericFamilyForFamily(NSString *family) {
+    size_t i;
+
+    for (i = 0; i < sizeof(O2FontGenericFallbacks) / sizeof(O2FontGenericFallbacks[0]); i++) {
+        if ([family caseInsensitiveCompare: [NSString stringWithUTF8String: O2FontGenericFallbacks[i].family]] == NSOrderedSame)
+            return O2FontGenericFallbacks[i].generic;
+    }
+    return NULL;
+}
+
+// Families tried before the generic one: fonts whose Latin letters are like the macOS fonts'
+// (DejaVu Sans Mono is what Menlo was made from). Locales such as Korean otherwise make the
+// generic family a CJK font, whose Latin letters are narrow and whose widest glyphs are three
+// characters wide.
+// Monospaced fonts first whose glyphs all share one width, like Menlo's: apps size columns
+// with the widest glyph (Noto Sans Mono has some 1.8 em wide).
+static const char *const O2FontMonospaceFamilies[] = {
+    "DejaVu Sans Mono", "Adwaita Mono", "Source Code Pro", "Liberation Mono", "Noto Sans Mono", NULL
+};
+static const char *const O2FontSansSerifFamilies[] = {
+    "Noto Sans", "DejaVu Sans", "Adwaita Sans", "Liberation Sans", "Cantarell", NULL
+};
+static const char *const O2FontSerifFamilies[] = {
+    "Noto Serif", "DejaVu Serif", "Liberation Serif", NULL
+};
+
+void O2FontAddFallbackFamilies(FcPattern *pattern, NSString *family) {
+    const char *generic = O2FontGenericFamilyForFamily(family);
+    const char *const *preferred = NULL;
+
+    if (generic == NULL)
+        return;
+
+    if (strcmp(generic, "monospace") == 0)
+        preferred = O2FontMonospaceFamilies;
+    else if (strcmp(generic, "sans-serif") == 0)
+        preferred = O2FontSansSerifFamilies;
+    else if (strcmp(generic, "serif") == 0)
+        preferred = O2FontSerifFamilies;
+
+    for (; preferred != NULL && *preferred != NULL; preferred++)
+        FcPatternAddString(pattern, FC_FAMILY, (const FcChar8 *) *preferred);
+    FcPatternAddString(pattern, FC_FAMILY, (const FcChar8 *) generic);
+}
+
+// The fonts' PostScript names, each with its file and face index ("file", "index"). Built once
+// from fontconfig's font list: fontconfig doesn't find fonts by PostScript name reliably.
+static NSDictionary *O2FontPostScriptNameIndex(void) {
+    static NSDictionary *index = nil;
+    static dispatch_once_t once;
+
+    dispatch_once(&once, ^{
+        FcConfig *config = O2FontSharedFontConfig();
+        FcPattern *all = FcPatternCreate();
+        FcObjectSet *objects = FcObjectSetBuild(FC_POSTSCRIPT_NAME, FC_FILE, FC_INDEX, NULL);
+        FcFontSet *fonts = FcFontList(config, all, objects);
+        NSMutableDictionary *result = [[NSMutableDictionary alloc] init];
+        int i;
+
+        for (i = 0; fonts != NULL && i < fonts->nfont; i++) {
+            FcChar8 *name = NULL;
+            FcChar8 *file = NULL;
+            int faceIndex = 0;
+            NSString *key;
+
+            if (FcPatternGetString(fonts->fonts[i], FC_POSTSCRIPT_NAME, 0, &name) != FcResultMatch ||
+                FcPatternGetString(fonts->fonts[i], FC_FILE, 0, &file) != FcResultMatch || name[0] == 0)
+                continue;
+            FcPatternGetInteger(fonts->fonts[i], FC_INDEX, 0, &faceIndex);
+
+            key = [NSString stringWithUTF8String: (const char *) name];
+            if (key != nil && [result objectForKey: key] == nil)
+                [result setObject: [NSDictionary dictionaryWithObjectsAndKeys:
+                                            [NSString stringWithUTF8String: (const char *) file], @"file",
+                                            [NSNumber numberWithInt: faceIndex], @"index", nil]
+                           forKey: key];
+        }
+
+        if (fonts != NULL)
+            FcFontSetDestroy(fonts);
+        FcObjectSetDestroy(objects);
+        FcPatternDestroy(all);
+        index = result;
+    });
+    return index;
+}
+
+// The font file and the face in it for a name as macOS apps use them: a PostScript name
+// ("Menlo-Bold", "Helvetica"), a family name or a fontconfig pattern (with a colon).
+static NSString *O2FontFreeTypePathForName(NSString *name, int *index) {
+    FcConfig *config = O2FontSharedFontConfig();
+    FcPattern *pattern;
+    FcPattern *match;
+    FcResult result;
+    FcChar8 *file = NULL;
+    NSString *path = nil;
+
+    *index = 0;
+
+    if ([name length] == 0 || [name rangeOfString: @":"].location != NSNotFound) {
+        pattern = FcNameParse((const FcChar8 *) [name UTF8String]);
+    } else {
+        // a font with exactly this PostScript name
+        NSDictionary *exact = [O2FontPostScriptNameIndex() objectForKey: name];
+
+        if (exact != nil) {
+            *index = [[exact objectForKey: @"index"] intValue];
+            return [exact objectForKey: @"file"];
+        }
+
+        // otherwise the family before the dash, with the style after it
+        NSString *family = name;
+        NSString *style = @"";
+        NSRange dash = [name rangeOfString: @"-" options: NSBackwardsSearch];
+
+        if (dash.location != NSNotFound && dash.location > 0) {
+            family = [name substringToIndex: dash.location];
+            style = [[name substringFromIndex: NSMaxRange(dash)] lowercaseString];
+        }
+
+        pattern = FcPatternCreate();
+        FcPatternAddString(pattern, FC_FAMILY, (const FcChar8 *) [family UTF8String]);
+        O2FontAddFallbackFamilies(pattern, family);
+
+        if ([style rangeOfString: @"bold"].location != NSNotFound ||
+            [style rangeOfString: @"black"].location != NSNotFound ||
+            [style rangeOfString: @"heavy"].location != NSNotFound)
+            FcPatternAddInteger(pattern, FC_WEIGHT, FC_WEIGHT_BOLD);
+        else if ([style rangeOfString: @"semibold"].location != NSNotFound ||
+                 [style rangeOfString: @"medium"].location != NSNotFound)
+            FcPatternAddInteger(pattern, FC_WEIGHT, FC_WEIGHT_MEDIUM);
+        else if ([style rangeOfString: @"light"].location != NSNotFound ||
+                 [style rangeOfString: @"thin"].location != NSNotFound)
+            FcPatternAddInteger(pattern, FC_WEIGHT, FC_WEIGHT_LIGHT);
+        if ([style rangeOfString: @"italic"].location != NSNotFound ||
+            [style rangeOfString: @"oblique"].location != NSNotFound)
+            FcPatternAddInteger(pattern, FC_SLANT, FC_SLANT_ITALIC);
+    }
+
+    if (pattern == NULL)
+        return nil;
+
+    FcConfigSubstitute(config, pattern, FcMatchPattern);
+    FcDefaultSubstitute(pattern);
+    match = FcFontMatch(config, pattern, &result);
+    FcPatternDestroy(pattern);
+    if (match == NULL)
+        return nil;
+
+    if (FcPatternGetString(match, FC_FILE, 0, &file) == FcResultMatch) {
+        path = [NSString stringWithUTF8String: (const char *) file];
+        FcPatternGetInteger(match, FC_INDEX, 0, index);
+    }
+    FcPatternDestroy(match);
+    return path;
+}
+
 - (instancetype) initWithFontName: (NSString *) name {
     self = [super initWithFontName: name];
 
-    NSString *filename = [[self class] filenameForPattern: name];
+    int index = 0;
+    NSString *filename = O2FontFreeTypePathForName(name, &index);
     if (filename == nil) {
-        filename = [[self class] filenameForPattern: @""];
+        filename = O2FontFreeTypePathForName(@"", &index);
     }
     if (filename == nil) {
         NSLog(@"No font found for name %@", name);
@@ -189,7 +386,7 @@ FcConfig *O2FontSharedFontConfig() {
     }
 
     FT_Face face;
-    FT_Error error = O2FontFreeTypeNewFace([filename fileSystemRepresentation], 0, &face);
+    FT_Error error = O2FontFreeTypeNewFace([filename fileSystemRepresentation], index, &face);
 
     if (error != 0) {
         NSLog(@"FT_New_Face() = %d", error);
@@ -254,7 +451,9 @@ FcConfig *O2FontSharedFontConfig() {
 }
 
 - (void) dealloc {
+    O2FontFreeTypeLock();
     FT_Done_Face(_face);
+    O2FontFreeTypeUnlock();
     [_macRomanEncoding release];
     [_macExpertEncoding release];
     [_winAnsiEncoding release];
@@ -270,6 +469,7 @@ FT_Face O2FontFreeTypeFace(O2Font_freetype *self) {
 }
 
 - (void) fetchAdvances {
+    O2FontFreeTypeLockScope();
     FT_Set_Char_Size(_face, 0, _unitsPerEm * 64, 72, 72);
 
     _advances = NSZoneMalloc(NULL, sizeof(NSInteger) * _numberOfGlyphs);
@@ -282,10 +482,12 @@ FT_Face O2FontFreeTypeFace(O2Font_freetype *self) {
 }
 
 - (O2Glyph) glyphWithGlyphName: (NSString *) name {
+    O2FontFreeTypeLockScope();
     return FT_Get_Name_Index(_face, (char *) [name cString]);
 }
 
 - (NSString *) copyGlyphNameForGlyph: (O2Glyph) glyph {
+    O2FontFreeTypeLockScope();
     unsigned char buffer[100];
     if (FT_Get_Glyph_Name(_face, glyph, buffer, sizeof(buffer)) != 0) {
         return nil;
@@ -297,6 +499,7 @@ FT_Face O2FontFreeTypeFace(O2Font_freetype *self) {
         forCodePoints: (uint16_t *) codes
                length: (NSInteger) length
 {
+    O2FontFreeTypeLockScope();
     for (int i = 0; i < length; i++) {
         glyphs[i] = FT_Get_Char_Index(_face, codes[i]);
     }

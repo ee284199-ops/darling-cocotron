@@ -67,6 +67,7 @@ static NSString *KTManagerPostScriptNameForGraphicsFont(CGFontRef font) {
 
     if ([ftFont isKindOfClass: [O2Font_freetype class]]) {
         FT_Face face = [ftFont face];
+        O2FontFreeTypeLockScope();
         const char *name = face != NULL ? FT_Get_Postscript_Name(face) : NULL;
         if (name != NULL)
             return [NSString stringWithUTF8String: name];
@@ -242,6 +243,8 @@ CFArrayRef CTFontManagerCreateFontDescriptorsFromURL(CFURLRef url) {
 
     if (path == nil)
         return NULL;
+
+    O2FontFreeTypeLockScope();
 
     if (FT_New_Face(O2FontSharedFreeTypeLibrary(), [path fileSystemRepresentation], 0, &face) != 0)
         return NULL;

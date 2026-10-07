@@ -21,6 +21,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSFontDescriptor.h>
 #import <AppKit/NSFontFamily.h>
 #import <AppKit/NSFontTypeface.h>
+#import <CoreText/KTFont.h>
 #import <AppKit/NSGraphicsContextFunctions.h>
 #import <AppKit/NSRaise.h>
 #import <AppKit/NSWindow.h>
@@ -192,7 +193,8 @@ static NSLock *_cacheLock = nil;
     NSUInteger i = [self _cacheIndexOfFontWithName: [font fontName]
                                               size: [font pointSize]];
 
-    if (i != NSNotFound)
+    // another font of the same name may be the cached one
+    if (i != NSNotFound && _fontCache[i] == font)
         _fontCache[i] = nil;
     [_cacheLock unlock];
 }
@@ -310,9 +312,36 @@ static NSLock *_cacheLock = nil;
 }
 
 + (NSFont *) userFixedPitchFontOfSize: (CGFloat) size {
+    // Menlo, like on macOS (it maps to the system's monospace font)
+    NSFont *font = [NSFont fontWithName: @"Menlo" size: (size == 0) ? 11.0 : size];
+
+    if (font != nil)
+        return font;
     return [NSFont
             fontWithName: [O2Font postscriptNameForDisplayName: @"Courier New"]
                     size: (size == 0) ? 12.0 : size];
+}
+
+// the bold face for weights from semibold up, the regular one below
++ (NSFont *) _font: (NSFont *) font withWeight: (NSFontWeight) weight {
+    if (font == nil || weight < NSFontWeightSemibold)
+        return font;
+    return [[NSFontManager sharedFontManager] convertFont: font
+                                              toHaveTrait: NSBoldFontMask];
+}
+
++ (NSFont *) systemFontOfSize: (CGFloat) size weight: (NSFontWeight) weight {
+    return [self _font: [self systemFontOfSize: size] withWeight: weight];
+}
+
++ (NSFont *) monospacedSystemFontOfSize: (CGFloat) size weight: (NSFontWeight) weight {
+    return [self _font: [self userFixedPitchFontOfSize: (size == 0) ? 12.0 : size]
+            withWeight: weight];
+}
+
++ (NSFont *) monospacedDigitSystemFontOfSize: (CGFloat) size weight: (NSFontWeight) weight {
+    // the system font's digits already share one width
+    return [self systemFontOfSize: size weight: weight];
 }
 
 + (void) setUserFont: (NSFont *) value {
@@ -475,6 +504,34 @@ static NSLock *_cacheLock = nil;
         [self release];
         self = nil;
     }
+    return self;
+}
+
+// An NSFont for a font CoreText made, with the same face (on macOS they are the same
+// objects). It isn't cached by name: its name may not lead back to its face.
+- (instancetype) _initWithCTFont: (CTFontRef) ctFont {
+    CGFontRef cgFont = ctFont != NULL ? CTFontCopyGraphicsFont(ctFont, NULL) : NULL;
+    NSString *name;
+
+    if (cgFont == NULL) {
+        [self release];
+        return nil;
+    }
+
+    name = [(NSString *) CTFontCopyPostScriptName(ctFont) autorelease];
+    _name = [(name != nil ? name : @"") copy];
+    _pointSize = CTFontGetSize(ctFont);
+    _matrix[0] = _pointSize;
+    _matrix[1] = 0;
+    _matrix[2] = 0;
+    _matrix[3] = _pointSize;
+    _matrix[4] = 0;
+    _matrix[5] = 0;
+    _encoding = NSUnicodeStringEncoding;
+    _cgFont = cgFont;
+    // a CoreText font of its own: retaining ctFont would keep both alive for good, since
+    // ctFont keeps this font
+    _ctFont = CTFontCreateWithGraphicsFont(_cgFont, _pointSize, NULL, NULL);
     return self;
 }
 
@@ -735,22 +792,9 @@ static NSLock *_cacheLock = nil;
 }
 
 - (NSSize) maximumAdvancement {
-    CGSize max = CGSizeZero;
-    NSInteger glyph, glyphCount = CTFontGetGlyphCount(_ctFont);
-    CGGlyph glyphs[glyphCount];
-    CGSize advances[glyphCount];
-
-    for (glyph = 0; glyph < glyphCount; glyph++)
-        glyphs[glyph] = glyph;
-
-    CTFontGetAdvancesForGlyphs(_ctFont, 0, glyphs, advances, glyphCount);
-
-    for (glyph = 0; glyph < glyphCount; glyph++) {
-        max.width = MAX(max.width, advances[glyph].width);
-        max.height = MAX(max.height, advances[glyph].height);
-    }
-
-    return max;
+    // CoreText's font knows it without measuring every glyph (on the stack: a CJK font has
+    // 65000 of them)
+    return [(KTFont *) _ctFont maximumAdvancement];
 }
 
 - (CGFloat) underlinePosition {
@@ -780,24 +824,9 @@ static NSLock *_cacheLock = nil;
 }
 
 - (BOOL) isFixedPitch {
-    CGSize current;
-    NSInteger glyph, glyphCount = CTFontGetGlyphCount(_ctFont);
-    CGGlyph glyphs[glyphCount];
-    CGSize advances[glyphCount];
-
-    for (glyph = 0; glyph < glyphCount; glyph++)
-        glyphs[glyph] = glyph;
-
-    CTFontGetAdvancesForGlyphs(_ctFont, 0, glyphs, advances, glyphCount);
-    current = advances[0];
-
-    for (glyph = 1; glyph < glyphCount; glyph++) {
-        if (advances[glyph].width != current.width ||
-            advances[glyph].height != current.height)
-            return NO;
-    }
-
-    return YES;
+    // Comparing every glyph's advance is slow for big fonts and says no for monospaced
+    // fonts with double-width CJK glyphs; CoreText checks the Latin letters.
+    return (CTFontGetSymbolicTraits(_ctFont) & kCTFontTraitMonoSpace) != 0;
 }
 
 - (CGFloat) italicAngle {

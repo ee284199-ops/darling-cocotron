@@ -97,17 +97,23 @@ static int KTFTCubicTo(const FT_Vector *control1, const FT_Vector *control2, con
 
     (void) language;
 
+    // macOS's names, which the font lookup maps to similar fonts that the system has
     switch (uiFontType) {
     case kCTFontUIFontUserFixedPitch:
-        name = @"monospace";
+        name = @"Menlo";
+        break;
+
+    case kCTFontUIFontEmphasizedSystem:
+    case kCTFontUIFontSmallEmphasizedSystem:
+    case kCTFontUIFontMiniEmphasizedSystem:
+    case kCTFontUIFontEmphasizedSystemDetail:
+    case kCTFontUIFontAlertHeader:
+        name = @".AppleSystemUIFont-Bold";
         break;
 
     case kCTFontUIFontSystem:
-    case kCTFontUIFontEmphasizedSystem:
     case kCTFontUIFontSmallSystem:
-    case kCTFontUIFontSmallEmphasizedSystem:
     case kCTFontUIFontMiniSystem:
-    case kCTFontUIFontMiniEmphasizedSystem:
     case kCTFontUIFontViews:
     case kCTFontUIFontApplication:
     case kCTFontUIFontLabel:
@@ -118,9 +124,7 @@ static int KTFTCubicTo(const FT_Vector *control1, const FT_Vector *control2, con
     case kCTFontUIFontWindowTitle:
     case kCTFontUIFontPushButton:
     case kCTFontUIFontUtilityWindowTitle:
-    case kCTFontUIFontAlertHeader:
     case kCTFontUIFontSystemDetail:
-    case kCTFontUIFontEmphasizedSystemDetail:
     case kCTFontUIFontToolbar:
     case kCTFontUIFontSmallToolbar:
     case kCTFontUIFontMessage:
@@ -128,7 +132,7 @@ static int KTFTCubicTo(const FT_Vector *control1, const FT_Vector *control2, con
     case kCTFontUIFontToolTip:
     case kCTFontUIFontControlContent:
     default:
-        name = @"sans-serif";
+        name = @".AppleSystemUIFont";
         break;
     }
 
@@ -146,6 +150,15 @@ static int KTFTCubicTo(const FT_Vector *control1, const FT_Vector *control2, con
 
 - (FT_Face) face {
     return [(O2Font_freetype *) _font face];
+}
+
+// what the font says its widest glyph is (hhea's advanceWidthMax), without measuring them all
+- (CGSize) maximumAdvancement {
+    FT_Face face = [self face];
+
+    if (face == NULL || face->max_advance_width <= 0)
+        return [super maximumAdvancement];
+    return CGSizeMake(face->max_advance_width * _size / _unitsPerEm, 0);
 }
 
 - (CGRect) boundingRect {
@@ -186,6 +199,7 @@ static int KTFTCubicTo(const FT_Vector *control1, const FT_Vector *control2, con
 {
     O2Font_freetype *o2Font = (O2Font_freetype *) _font;
     FT_Face face = [o2Font face];
+    O2FontFreeTypeLockScope();
 
     int i;
     for (i = 0; i < length; i++) {
@@ -199,6 +213,7 @@ static int KTFTCubicTo(const FT_Vector *control1, const FT_Vector *control2, con
 {
     O2Font_freetype *o2Font = (O2Font_freetype *) _font;
     FT_Face face = [o2Font face];
+    O2FontFreeTypeLockScope();
 
     int i;
     FT_Set_Pixel_Sizes(face, _size, _size);
@@ -216,6 +231,7 @@ static int KTFTCubicTo(const FT_Vector *control1, const FT_Vector *control2, con
 {
     O2Font_freetype *o2Font = (O2Font_freetype *) _font;
     FT_Face face = [o2Font face];
+    O2FontFreeTypeLockScope();
 
     *isNominalp = YES;
 
@@ -233,6 +249,7 @@ static int KTFTCubicTo(const FT_Vector *control1, const FT_Vector *control2, con
                        transform: (CGAffineTransform *) xform
 {
     FT_Face face = [self face];
+    O2FontFreeTypeLockScope();
     KTFTOutlineContext context;
     FT_Outline_Funcs functions = { KTFTMoveTo, KTFTLineTo, KTFTConicTo, KTFTCubicTo, 0, 0 };
 
@@ -257,6 +274,7 @@ static int KTFTCubicTo(const FT_Vector *control1, const FT_Vector *control2, con
 
 - (NSData *) copyTableForTag: (uint32_t) tag {
     FT_Face face = [self face];
+    O2FontFreeTypeLockScope();
     FT_ULong length = 0;
     void *buffer;
     NSData *data;

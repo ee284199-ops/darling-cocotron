@@ -31,6 +31,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <Foundation/NSString.h>
 #import <Foundation/NSURL.h>
 #import <Onyx2D/O2Font_freetype.h>
+#import <objc/runtime.h>
 
 #include <stdlib.h>
 
@@ -131,6 +132,7 @@ static id KTFontDescriptorAttribute(CTFontRef font, CFStringRef key) {
 // FreeType only flags fonts whose glyphs all have one width. fontconfig also calls "dual width"
 // fonts monospace (Noto Sans Mono CJK: fixed-width Latin, double-width CJK), and so do terminals.
 static BOOL KTFaceHasFixedWidthLatin(FT_Face face) {
+    O2FontFreeTypeLockScope();
     const FT_ULong probes[] = { 'i', 'W', 'm', '1', '.' };
     FT_Pos width = 0;
     size_t i;
@@ -148,25 +150,54 @@ static BOOL KTFaceHasFixedWidthLatin(FT_Face face) {
     return width > 0;
 }
 
+static char KTFontFaceTraitsKey;
+
+// What the FreeType face says about the style. Checking the Latin letters' widths loads
+// glyphs, so the answer is kept with the font.
+static uint32_t KTFontFaceSymbolicTraits(CTFontRef font) {
+    NSNumber *cached = objc_getAssociatedObject((id) font, &KTFontFaceTraitsKey);
+    FT_Face face;
+    uint32_t symbolic = 0;
+
+    if (cached != nil)
+        return [cached unsignedIntValue];
+
+    face = KTFontFace(font);
+    if (face != NULL) {
+        if (face->style_flags & FT_STYLE_FLAG_BOLD)
+            symbolic |= kCTFontTraitBold;
+        if (face->style_flags & FT_STYLE_FLAG_ITALIC)
+            symbolic |= kCTFontTraitItalic;
+        if ((face->face_flags & FT_FACE_FLAG_FIXED_WIDTH) || KTFaceHasFixedWidthLatin(face))
+            symbolic |= kCTFontTraitMonoSpace;
+    }
+
+    objc_setAssociatedObject((id) font, &KTFontFaceTraitsKey,
+                             [NSNumber numberWithUnsignedInt: symbolic],
+                             OBJC_ASSOCIATION_RETAIN);
+    return symbolic;
+}
+
 static NSDictionary *KTFontTraitsForFont(CTFontRef font) {
     font = KTFontResolve(font);
     NSDictionary *traits = KTFontDescriptorAttribute(font, kCTFontTraitsAttribute);
+    uint32_t faceSymbolic = KTFontFaceSymbolicTraits(font);
 
-    if (traits != nil)
-        return traits;
+    if (traits != nil) {
+        // fonts made by AppKit carry traits that leave out what only the face knows
+        uint32_t symbolic = [[traits objectForKey: (NSString *) kCTFontSymbolicTrait] unsignedIntValue];
+        NSMutableDictionary *merged;
+
+        if ((symbolic | faceSymbolic) == symbolic)
+            return traits;
+        merged = [[traits mutableCopy] autorelease];
+        [merged setObject: [NSNumber numberWithUnsignedInt: symbolic | faceSymbolic]
+                   forKey: (NSString *) kCTFontSymbolicTrait];
+        return merged;
+    }
 
     {
-        FT_Face face = KTFontFace(font);
-        uint32_t symbolic = 0;
-
-        if (face != NULL) {
-            if (face->style_flags & FT_STYLE_FLAG_BOLD)
-                symbolic |= kCTFontTraitBold;
-            if (face->style_flags & FT_STYLE_FLAG_ITALIC)
-                symbolic |= kCTFontTraitItalic;
-            if ((face->face_flags & FT_FACE_FLAG_FIXED_WIDTH) || KTFaceHasFixedWidthLatin(face))
-                symbolic |= kCTFontTraitMonoSpace;
-        }
+        uint32_t symbolic = faceSymbolic;
 
         return [NSDictionary dictionaryWithObjectsAndKeys:
                 [NSNumber numberWithUnsignedInt: symbolic], (NSString *) kCTFontSymbolicTrait,
@@ -184,6 +215,8 @@ static NSDictionary *KTFontAttributesWithFaceNames(CTFontRef font, NSDictionary 
     NSMutableDictionary *attributes = base != nil ? [[base mutableCopy] autorelease] : [NSMutableDictionary dictionary];
 
     if (face != NULL) {
+        O2FontFreeTypeLockScope();
+
         if ([attributes objectForKey: (NSString *) kCTFontFamilyNameAttribute] == nil && face->family_name != NULL)
             [attributes setObject: [NSString stringWithUTF8String: face->family_name]
                            forKey: (NSString *) kCTFontFamilyNameAttribute];
@@ -417,6 +450,7 @@ CTFontRef CTFontCreateForStringWithLanguage(CTFontRef currentFont, CFStringRef s
     characters = (UniChar *) malloc(sizeof(UniChar) * (range.length > 0 ? range.length : 1));
     CFStringGetCharacters(string, range, characters);
 
+    O2FontFreeTypeLock();
     for (i = 0; i < range.length; i++) {
         uint32_t code = characters[i];
 
@@ -432,6 +466,7 @@ CTFontRef CTFontCreateForStringWithLanguage(CTFontRef currentFont, CFStringRef s
             break;
         }
     }
+    O2FontFreeTypeUnlock();
 
     free(characters);
 
@@ -556,6 +591,7 @@ CFStringRef CTFontCopyPostScriptName(CTFontRef font) {
 
     {
         FT_Face face = KTFontFace(font);
+        O2FontFreeTypeLockScope();
         const char *name = face != NULL ? FT_Get_Postscript_Name(face) : NULL;
         if (name != NULL)
             return (CFStringRef) [[NSString alloc] initWithUTF8String: name];
@@ -645,6 +681,7 @@ CFCharacterSetRef CTFontCopyCharacterSet(CTFontRef font) {
     if (face == NULL)
         return NULL;
 
+    O2FontFreeTypeLockScope();
     characterSet = CFCharacterSetCreateMutable(NULL);
     character = FT_Get_First_Char(face, &glyphIndex);
 
@@ -762,6 +799,7 @@ CGRect CTFontGetBoundingRectsForGlyphs(CTFontRef font, CTFontOrientation orienta
     if (face == NULL || glyphs == NULL || count <= 0)
         return CGRectZero;
 
+    O2FontFreeTypeLockScope();
     for (i = 0; i < count; i++) {
         CGRect rect = CGRectZero;
 
@@ -857,6 +895,7 @@ bool CTFontGetGlyphsForCharacters(CTFontRef font, const UniChar *characters,
     if (face == NULL || characters == NULL || glyphs == NULL)
         return false;
 
+    O2FontFreeTypeLockScope();
     for (i = 0; i < count; i++) {
         uint32_t code = characters[i];
 
@@ -1000,6 +1039,7 @@ CFArrayRef CTFontCopyAvailableTables(CTFontRef font, CTFontTableOptions options)
 
     (void) options;
 
+    O2FontFreeTypeLockScope();
     if (face == NULL || !FT_IS_SFNT(face) || FT_Sfnt_Table_Info(face, 0, NULL, &count) != 0)
         return tags;
 

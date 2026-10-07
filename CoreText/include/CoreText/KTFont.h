@@ -63,6 +63,7 @@ enum { CGNullGlyph = 0x0 };
 - (CGFloat) capHeight;
 
 - (NSUInteger) numberOfGlyphs;
+- (CGSize) maximumAdvancement;
 
 - (NSData *) copyTableForTag: (uint32_t) tag;
 

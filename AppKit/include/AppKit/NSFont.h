@@ -18,6 +18,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 #import <AppKit/NSCell.h>
+#import <AppKit/NSFontDescriptor.h>
 #import <ApplicationServices/ApplicationServices.h>
 #import <Foundation/Foundation.h>
 
@@ -79,6 +80,9 @@ typedef enum {
 + (NSFont *) messageFontOfSize: (CGFloat) size;
 + (NSFont *) paletteFontOfSize: (CGFloat) size;
 + (NSFont *) systemFontOfSize: (CGFloat) size;
++ (NSFont *) systemFontOfSize: (CGFloat) size weight: (NSFontWeight) weight;
++ (NSFont *) monospacedSystemFontOfSize: (CGFloat) size weight: (NSFontWeight) weight;
++ (NSFont *) monospacedDigitSystemFontOfSize: (CGFloat) size weight: (NSFontWeight) weight;
 + (NSFont *) titleBarFontOfSize: (CGFloat) size;
 + (NSFont *) toolTipsFontOfSize: (CGFloat) size;
 + (NSFont *) userFontOfSize: (CGFloat) size;

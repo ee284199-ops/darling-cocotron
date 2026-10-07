@@ -20,6 +20,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <CoreText/CTFont.h>
 #import <Foundation/NSArray.h>
 #import <Onyx2D/O2Exceptions.h>
+#import <objc/runtime.h>
+#include <stdlib.h>
 
 @implementation KTFont
 
@@ -196,6 +198,26 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     }
 }
 
+// the widest glyph's advance
+- (CGSize) maximumAdvancement {
+    NSUInteger glyphCount = [self numberOfGlyphs];
+    CGGlyph *glyphs = malloc(sizeof(CGGlyph) * (glyphCount > 0 ? glyphCount : 1));
+    CGSize *advances = malloc(sizeof(CGSize) * (glyphCount > 0 ? glyphCount : 1));
+    CGSize max = CGSizeZero;
+    NSUInteger glyph;
+
+    for (glyph = 0; glyph < glyphCount; glyph++)
+        glyphs[glyph] = glyph;
+    [self getAdvancements: advances forGlyphs: glyphs count: glyphCount];
+    for (glyph = 0; glyph < glyphCount; glyph++) {
+        max.width = MAX(max.width, advances[glyph].width);
+        max.height = MAX(max.height, advances[glyph].height);
+    }
+    free(glyphs);
+    free(advances);
+    return max;
+}
+
 - (CGPathRef) createPathForGlyph: (CGGlyph) glyph
                        transform: (CGAffineTransform *) xform
 {
@@ -206,6 +228,54 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 // what CFGetTypeID() asks Objective-C objects for
 - (CFTypeID) _cfTypeID {
     return CTFontGetTypeID();
+}
+
+static char KTFontNSFontKey;
+
+// On macOS a CTFont is an NSFont, so apps send NSFont messages (set, screenFont, ...) to the
+// fonts CoreText gives them. Those go to the AppKit font with the same name and size.
+- (id) _darlingNSFont {
+    Class fontClass = objc_getClass("NSFont");
+    id font;
+
+    if (fontClass == Nil)
+        return nil;
+
+    font = objc_getAssociatedObject(self, &KTFontNSFontKey);
+    if (font == nil) {
+        SEL initWithCTFont = @selector(_initWithCTFont:);
+
+        if (![fontClass instancesRespondToSelector: initWithCTFont])
+            return nil;
+        // an AppKit font for this face (looking it up by name could find another face)
+        font = [[fontClass alloc] performSelector: initWithCTFont withObject: self];
+        if (font != nil) {
+            objc_setAssociatedObject(self, &KTFontNSFontKey, font, OBJC_ASSOCIATION_RETAIN);
+            [font release];
+        }
+    }
+    return font;
+}
+
+- (id) forwardingTargetForSelector: (SEL) selector {
+    Class fontClass = objc_getClass("NSFont");
+
+    if (fontClass != Nil && [fontClass instancesRespondToSelector: selector]) {
+        id font = [self _darlingNSFont];
+
+        if (font != nil)
+            return font;
+    }
+    return [super forwardingTargetForSelector: selector];
+}
+
+- (BOOL) respondsToSelector: (SEL) selector {
+    Class fontClass;
+
+    if ([super respondsToSelector: selector])
+        return YES;
+    fontClass = objc_getClass("NSFont");
+    return fontClass != Nil && [fontClass instancesRespondToSelector: selector];
 }
 
 @end
