@@ -213,6 +213,44 @@ static NSDictionary *KTFontAttributesFromFcPattern(FcPattern *pattern) {
     return attributes;
 }
 
+// macOS fonts that Linux systems don't have, and the fontconfig family that stands in for them.
+// fontconfig's own configuration already maps Helvetica, Arial, Times and Courier to
+// metric-compatible fonts; these it would replace with the locale's default sans-serif font.
+static const struct {
+    const char *family;
+    const char *generic;
+} KTFontGenericFallbacks[] = {
+    { "Menlo", "monospace" },
+    { "Monaco", "monospace" },
+    { "SF Mono", "monospace" },
+    { "Andale Mono", "monospace" },
+    { "PT Mono", "monospace" },
+    { ".AppleSystemUIFont", "sans-serif" },
+    { ".SF NS", "sans-serif" },
+    { "SF Pro", "sans-serif" },
+    { "SF Pro Text", "sans-serif" },
+    { "SF Pro Display", "sans-serif" },
+    { "San Francisco", "sans-serif" },
+    { "Helvetica Neue", "sans-serif" },
+    { "Lucida Grande", "sans-serif" },
+    { "Geneva", "sans-serif" },
+    { "Avenir", "sans-serif" },
+    { "Avenir Next", "sans-serif" },
+    { "New York", "serif" },
+    { "Georgia", "serif" },
+    { "Palatino", "serif" },
+};
+
+static const char *KTFontGenericFallback(NSString *family) {
+    size_t i;
+
+    for (i = 0; i < sizeof(KTFontGenericFallbacks) / sizeof(KTFontGenericFallbacks[0]); i++) {
+        if ([family caseInsensitiveCompare: [NSString stringWithUTF8String: KTFontGenericFallbacks[i].family]] == NSOrderedSame)
+            return KTFontGenericFallbacks[i].generic;
+    }
+    return NULL;
+}
+
 // build a fontconfig query pattern from a descriptor's attributes
 static FcPattern *KTFontPatternFromAttributes(NSDictionary *attributes) {
     FcPattern *pattern = FcPatternCreate();
@@ -223,10 +261,18 @@ static FcPattern *KTFontPatternFromAttributes(NSDictionary *attributes) {
     family = [attributes objectForKey: (NSString *) kCTFontFamilyNameAttribute];
     name = [attributes objectForKey: (NSString *) kCTFontNameAttribute];
 
-if (family != nil) {
+    if (family == nil && name != nil) {
+        // a PostScript name such as Menlo-Bold: look for its family
+        NSRange dash = [name rangeOfString: @"-"];
+        family = dash.location != NSNotFound && dash.location > 0 ? [name substringToIndex: dash.location] : name;
+    }
+
+    if (family != nil) {
+        const char *generic = KTFontGenericFallback(family);
+
         FcPatternAddString(pattern, FC_FAMILY, KTFcChar8FromString(family));
-    } else if (name != nil) {
-        FcPatternAddString(pattern, FC_FAMILY, KTFcChar8FromString(name));
+        if (generic != NULL)
+            FcPatternAddString(pattern, FC_FAMILY, (const FcChar8 *) generic);
     }
 
     {
@@ -370,10 +416,28 @@ CFArrayRef KTFontDescriptorCreateMatchingFontDescriptors(CTFontDescriptorRef des
     set = KTFontMatchSet(attributes);
 
     if (set != NULL) {
+        // FcFontSort lists every installed font, closest first. When a family was asked for, CoreText
+        // only returns that family's faces, so keep the faces of the family fontconfig picked.
+        BOOL familyQuery = [attributes objectForKey: (NSString *) kCTFontFamilyNameAttribute] != nil ||
+                           [attributes objectForKey: (NSString *) kCTFontNameAttribute] != nil;
+        FcChar8 *pickedFamily = NULL;
         int i;
 
+        if (familyQuery && set->nfont > 0)
+            FcPatternGetString(set->fonts[0], FC_FAMILY, 0, &pickedFamily);
+
         for (i = 0; i < set->nfont; i++) {
-            NSDictionary *matchAttributes = KTFontAttributesFromFcPattern(set->fonts[i]);
+            NSDictionary *matchAttributes;
+
+            if (pickedFamily != NULL) {
+                FcChar8 *family = NULL;
+
+                if (FcPatternGetString(set->fonts[i], FC_FAMILY, 0, &family) != FcResultMatch ||
+                    strcmp((const char *) family, (const char *) pickedFamily) != 0)
+                    continue;
+            }
+
+            matchAttributes = KTFontAttributesFromFcPattern(set->fonts[i]);
 
             if (!KTFontAttributesSatisfyMandatory(matchAttributes, mandatoryAttributes))
                 continue;
