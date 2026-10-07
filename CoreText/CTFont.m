@@ -81,7 +81,20 @@ enum {
 // helpers
 //
 
+// NSFont and CTFont are toll-free bridged on macOS, so apps pass NSFonts to these functions.
+// Cocotron's NSFont isn't a CTFont but wraps one: use that.
+static CTFontRef KTFontResolve(CTFontRef font) {
+    id object = (id) font;
+
+    if (object == nil || [object isKindOfClass: [KTFont class]])
+        return font;
+    if ([object respondsToSelector: @selector(_darlingCTFont)])
+        return (CTFontRef) [object _darlingCTFont];
+    return font;
+}
+
 static FT_Face KTFontFace(CTFontRef font) {
+    font = KTFontResolve(font);
     KTFont *ktf = (KTFont *) font;
     CGFontRef cgFont;
     O2Font_freetype *ftFont;
@@ -101,6 +114,7 @@ static FT_Face KTFontFace(CTFontRef font) {
 }
 
 static NSDictionary *KTFontDescriptorAttributes(CTFontRef font) {
+    font = KTFontResolve(font);
     KTFont *ktf = (KTFont *) font;
 
     if ([ktf descriptor] == NULL)
@@ -110,6 +124,7 @@ static NSDictionary *KTFontDescriptorAttributes(CTFontRef font) {
 }
 
 static id KTFontDescriptorAttribute(CTFontRef font, CFStringRef key) {
+    font = KTFontResolve(font);
     return [KTFontDescriptorAttributes(font) objectForKey: (NSString *) key];
 }
 
@@ -134,6 +149,7 @@ static BOOL KTFaceHasFixedWidthLatin(FT_Face face) {
 }
 
 static NSDictionary *KTFontTraitsForFont(CTFontRef font) {
+    font = KTFontResolve(font);
     NSDictionary *traits = KTFontDescriptorAttribute(font, kCTFontTraitsAttribute);
 
     if (traits != nil)
@@ -163,6 +179,7 @@ static NSDictionary *KTFontTraitsForFont(CTFontRef font) {
 
 // merge a base attribute dictionary with names derived from the FreeType face
 static NSDictionary *KTFontAttributesWithFaceNames(CTFontRef font, NSDictionary *base) {
+    font = KTFontResolve(font);
     FT_Face face = KTFontFace(font);
     NSMutableDictionary *attributes = base != nil ? [[base mutableCopy] autorelease] : [NSMutableDictionary dictionary];
 
@@ -284,6 +301,7 @@ CTFontRef CTFontCreateCopyWithAttributes(CTFontRef font, CGFloat size,
                                          const CGAffineTransform *matrix,
                                          CTFontDescriptorRef attributes)
 {
+    font = KTFontResolve(font);
     CTFontDescriptorRef base;
     CTFontDescriptorRef descriptor;
     CFDictionaryRef attributeDictionary = NULL;
@@ -316,6 +334,7 @@ CTFontRef CTFontCreateCopyWithSymbolicTraits(CTFontRef font, CGFloat size,
                                              CTFontSymbolicTraits symTraitValue,
                                              CTFontSymbolicTraits symTraitMask)
 {
+    font = KTFontResolve(font);
     CTFontDescriptorRef base;
     CTFontDescriptorRef descriptor;
     CGAffineTransform transform;
@@ -341,6 +360,7 @@ CTFontRef CTFontCreateCopyWithSymbolicTraits(CTFontRef font, CGFloat size,
 CTFontRef CTFontCreateCopyWithFamily(CTFontRef font, CGFloat size,
                                      const CGAffineTransform *matrix, CFStringRef family)
 {
+    font = KTFontResolve(font);
     CTFontDescriptorRef base;
     CTFontDescriptorRef descriptor;
     CGAffineTransform transform;
@@ -364,12 +384,14 @@ CTFontRef CTFontCreateCopyWithFamily(CTFontRef font, CGFloat size,
 }
 
 CTFontRef CTFontCreateForString(CTFontRef currentFont, CFStringRef string, CFRange range) {
+    currentFont = KTFontResolve(currentFont);
     return CTFontCreateForStringWithLanguage(currentFont, string, range, NULL);
 }
 
 CTFontRef CTFontCreateForStringWithLanguage(CTFontRef currentFont, CFStringRef string,
                                             CFRange range, CFStringRef language)
 {
+    currentFont = KTFontResolve(currentFont);
     FT_Face face;
     UniChar *characters;
     CFIndex length;
@@ -439,6 +461,7 @@ CTFontRef CTFontCreateForStringWithLanguage(CTFontRef currentFont, CFStringRef s
 //
 
 CTFontDescriptorRef CTFontCopyFontDescriptor(CTFontRef font) {
+    font = KTFontResolve(font);
     NSDictionary *attributes = KTFontDescriptorAttributes(font);
     NSDictionary *merged = KTFontAttributesWithFaceNames(font, attributes);
     NSMutableDictionary *result = [[merged mutableCopy] autorelease];
@@ -448,6 +471,7 @@ CTFontDescriptorRef CTFontCopyFontDescriptor(CTFontRef font) {
 }
 
 CFTypeRef CTFontCopyAttribute(CTFontRef font, CFStringRef attribute) {
+    font = KTFontResolve(font);
     if (font == NULL || attribute == NULL)
         return NULL;
 
@@ -467,23 +491,28 @@ CFTypeRef CTFontCopyAttribute(CTFontRef font, CFStringRef attribute) {
 }
 
 CGFloat CTFontGetSize(CTFontRef self) {
+    self = KTFontResolve(self);
     return [self pointSize];
 }
 
 CGAffineTransform CTFontGetMatrix(CTFontRef font) {
+    font = KTFontResolve(font);
     return [(KTFont *) font matrix];
 }
 
 CTFontSymbolicTraits CTFontGetSymbolicTraits(CTFontRef font) {
+    font = KTFontResolve(font);
     NSDictionary *traits = KTFontTraitsForFont(font);
     return (CTFontSymbolicTraits)[[traits objectForKey: (NSString *) kCTFontSymbolicTrait] unsignedIntValue];
 }
 
 CFDictionaryRef CTFontCopyTraits(CTFontRef font) {
+    font = KTFontResolve(font);
     return (CFDictionaryRef) [KTFontTraitsForFont(font) copy];
 }
 
 CFArrayRef CTFontCopyDefaultCascadeListForLanguages(CTFontRef font, CFArrayRef languagePrefList) {
+    font = KTFontResolve(font);
     NSDictionary *attributes = KTFontDescriptorAttributes(font);
     NSMutableArray *result = [NSMutableArray array];
 
@@ -519,6 +548,7 @@ CFArrayRef CTFontCopyDefaultCascadeListForLanguages(CTFontRef font, CFArrayRef l
 //
 
 CFStringRef CTFontCopyPostScriptName(CTFontRef font) {
+    font = KTFontResolve(font);
     id value = KTFontDescriptorAttribute(font, kCTFontNameAttribute);
 
     if (value != nil)
@@ -535,6 +565,7 @@ CFStringRef CTFontCopyPostScriptName(CTFontRef font) {
 }
 
 CFStringRef CTFontCopyFamilyName(CTFontRef font) {
+    font = KTFontResolve(font);
     id value = KTFontDescriptorAttribute(font, kCTFontFamilyNameAttribute);
 
     if (value != nil)
@@ -550,6 +581,7 @@ CFStringRef CTFontCopyFamilyName(CTFontRef font) {
 }
 
 CFStringRef CTFontCopyFullName(CTFontRef self) {
+    self = KTFontResolve(self);
     id value = KTFontDescriptorAttribute(self, kCTFontDisplayNameAttribute);
 
     if (value != nil)
@@ -559,10 +591,12 @@ CFStringRef CTFontCopyFullName(CTFontRef self) {
 }
 
 CFStringRef CTFontCopyDisplayName(CTFontRef font) {
+    font = KTFontResolve(font);
     return CTFontCopyFullName(font);
 }
 
 CFStringRef _Nullable CTFontCopyName(CTFontRef font, CFStringRef nameKey) {
+    font = KTFontResolve(font);
     if (nameKey == NULL)
         return nil;
 
@@ -595,12 +629,14 @@ CFStringRef _Nullable CTFontCopyName(CTFontRef font, CFStringRef nameKey) {
 CFStringRef CTFontCopyLocalizedName(CTFontRef font, CFStringRef nameKey,
                                     CFStringRef *actualLanguage)
 {
+    font = KTFontResolve(font);
     if (actualLanguage != NULL)
         *actualLanguage = NULL;
     return CTFontCopyName(font, nameKey);
 }
 
 CFCharacterSetRef CTFontCopyCharacterSet(CTFontRef font) {
+    font = KTFontResolve(font);
     FT_Face face = KTFontFace(font);
     CFMutableCharacterSetRef characterSet;
     FT_UInt glyphIndex;
@@ -621,11 +657,13 @@ CFCharacterSetRef CTFontCopyCharacterSet(CTFontRef font) {
 }
 
 CFStringEncoding CTFontGetStringEncoding(CTFontRef font) {
+    font = KTFontResolve(font);
     (void) font;
     return kCFStringEncodingUnicode;
 }
 
 CFArrayRef CTFontCopySupportedLanguages(CTFontRef font) {
+    font = KTFontResolve(font);
     (void) font;
     return (CFArrayRef) [[NSArray array] copy];
 }
@@ -635,46 +673,57 @@ CFArrayRef CTFontCopySupportedLanguages(CTFontRef font) {
 //
 
 CGFloat CTFontGetAscent(CTFontRef self) {
+    self = KTFontResolve(self);
     return [self ascender];
 }
 
 CGFloat CTFontGetDescent(CTFontRef self) {
+    self = KTFontResolve(self);
     return [self descender];
 }
 
 CGFloat CTFontGetLeading(CTFontRef self) {
+    self = KTFontResolve(self);
     return [self leading];
 }
 
 unsigned int CTFontGetUnitsPerEm(CTFontRef font) {
+    font = KTFontResolve(font);
     return [(KTFont *) font unitsPerEm];
 }
 
 CFIndex CTFontGetGlyphCount(CTFontRef font) {
+    font = KTFontResolve(font);
     return [font numberOfGlyphs];
 }
 
 CGRect CTFontGetBoundingBox(CTFontRef self) {
+    self = KTFontResolve(self);
     return [self boundingRect];
 }
 
 CGFloat CTFontGetUnderlinePosition(CTFontRef self) {
+    self = KTFontResolve(self);
     return [self underlinePosition];
 }
 
 CGFloat CTFontGetUnderlineThickness(CTFontRef self) {
+    self = KTFontResolve(self);
     return [self underlineThickness];
 }
 
 CGFloat CTFontGetSlantAngle(CTFontRef self) {
+    self = KTFontResolve(self);
     return [self italicAngle];
 }
 
 CGFloat CTFontGetCapHeight(CTFontRef self) {
+    self = KTFontResolve(self);
     return [self capHeight];
 }
 
 CGFloat CTFontGetXHeight(CTFontRef self) {
+    self = KTFontResolve(self);
     return [self xHeight];
 }
 
@@ -683,10 +732,12 @@ CGFloat CTFontGetXHeight(CTFontRef self) {
 //
 
 CGPathRef CTFontCreatePathForGlyph(CTFontRef self, CGGlyph glyph, CGAffineTransform *xform) {
+    self = KTFontResolve(self);
     return (CGPathRef) [self createPathForGlyph: glyph transform: xform];
 }
 
 CGGlyph CTFontGetGlyphWithName(CTFontRef font, CFStringRef glyphName) {
+    font = KTFontResolve(font);
     KTFont *ktf = (KTFont *) font;
 
     if (ktf == nil || glyphName == NULL)
@@ -699,6 +750,7 @@ CGRect CTFontGetBoundingRectsForGlyphs(CTFontRef font, CTFontOrientation orienta
                                        const CGGlyph *glyphs, CGRect *boundingRects,
                                        CFIndex count)
 {
+    font = KTFontResolve(font);
     FT_Face face = KTFontFace(font);
     CGFloat scale = CTFontGetUnitsPerEm(font) != 0 ? CTFontGetSize(font) / (CGFloat) CTFontGetUnitsPerEm(font) : 1;
     CGFloat minX = 0, minY = 0, maxX = 0, maxY = 0;
@@ -750,6 +802,7 @@ double CTFontGetAdvancesForGlyphs(CTFontRef font, CTFontOrientation orientation,
                                   const CGGlyph *glyphs, CGSize *advances,
                                   CFIndex count)
 {
+    font = KTFontResolve(font);
     KTFont *ktf = (KTFont *) font;
     double sum = 0;
     CFIndex i;
@@ -775,6 +828,7 @@ CGRect CTFontGetOpticalBoundsForGlyphs(CTFontRef font, const CGGlyph *glyphs,
                                        CGRect *boundingRects, CFIndex count,
                                        CFOptionFlags options)
 {
+    font = KTFontResolve(font);
     (void) options;
     return CTFontGetBoundingRectsForGlyphs(font, kCTFontOrientationDefault, glyphs, boundingRects, count);
 }
@@ -782,6 +836,7 @@ CGRect CTFontGetOpticalBoundsForGlyphs(CTFontRef font, const CGGlyph *glyphs,
 void CTFontGetVerticalTranslationsForGlyphs(CTFontRef font, const CGGlyph *glyphs,
                                             CGSize *translations, CFIndex count)
 {
+    font = KTFontResolve(font);
     CFIndex i;
 
     (void) font;
@@ -794,6 +849,7 @@ void CTFontGetVerticalTranslationsForGlyphs(CTFontRef font, const CGGlyph *glyph
 bool CTFontGetGlyphsForCharacters(CTFontRef font, const UniChar *characters,
                                   CGGlyph *glyphs, CFIndex count)
 {
+    font = KTFontResolve(font);
     FT_Face face = KTFontFace(font);
     BOOL all = YES;
     CFIndex i;
@@ -825,6 +881,7 @@ bool CTFontGetGlyphsForCharacters(CTFontRef font, const UniChar *characters,
 void CTFontDrawGlyphs(CTFontRef font, const CGGlyph *glyphs, const CGPoint *positions,
                       size_t count, CGContextRef context)
 {
+    font = KTFontResolve(font);
     KTFont *ktf = (KTFont *) font;
     CGFontRef cgFont;
     CGAffineTransform textMatrix;
@@ -854,6 +911,7 @@ void CTFontDrawGlyphs(CTFontRef font, const CGGlyph *glyphs, const CGPoint *posi
 CFIndex CTFontGetLigatureCaretPositions(CTFontRef font, CGGlyph glyph, CGFloat *positions,
                                         CFIndex maxPositions)
 {
+    font = KTFontResolve(font);
     (void) font;
     (void) glyph;
     (void) positions;
@@ -866,6 +924,7 @@ CFIndex CTFontGetLigatureCaretPositions(CTFontRef font, CGGlyph glyph, CGFloat *
 //
 
 CGFontRef CTFontCopyGraphicsFont(CTFontRef font, CTFontDescriptorRef *attributes) {
+    font = KTFontResolve(font);
     KTFont *ktf = (KTFont *) font;
 
     if (ktf == nil)
@@ -897,6 +956,7 @@ CTFontCreateWithGraphicsFont(CGFontRef cgFont, CGFloat size,
 }
 
 ATSFontRef CTFontGetPlatformFont(CTFontRef font, CTFontDescriptorRef *attributes) {
+    font = KTFontResolve(font);
     (void) font;
     if (attributes != NULL)
         *attributes = NULL;
@@ -932,6 +992,7 @@ CTFontRef CTFontCreateWithQuickdrawInstance(ConstStr255Param name, int16_t ident
 // font files from these tags and CTFontCopyTable. FreeType reads the face's own table directory,
 // which also works for faces in .ttc collections.
 CFArrayRef CTFontCopyAvailableTables(CTFontRef font, CTFontTableOptions options) {
+    font = KTFontResolve(font);
     CFMutableArrayRef tags = CFArrayCreateMutable(kCFAllocatorDefault, 0, NULL);
     FT_Face face = KTFontFace(font);
     FT_ULong count = 0;
@@ -954,6 +1015,7 @@ CFArrayRef CTFontCopyAvailableTables(CTFontRef font, CTFontTableOptions options)
 }
 
 CFDataRef CTFontCopyTable(CTFontRef font, CTFontTableTag table, CTFontTableOptions options) {
+    font = KTFontResolve(font);
     KTFont *ktf = (KTFont *) font;
 
     (void) options;
@@ -969,21 +1031,25 @@ CFDataRef CTFontCopyTable(CTFontRef font, CTFontTableTag table, CTFontTableOptio
 //
 
 CFArrayRef CTFontCopyVariationAxes(CTFontRef font) {
+    font = KTFontResolve(font);
     (void) font;
     return NULL;
 }
 
 CFDictionaryRef CTFontCopyVariation(CTFontRef font) {
+    font = KTFontResolve(font);
     (void) font;
     return NULL;
 }
 
 CFArrayRef CTFontCopyFeatures(CTFontRef font) {
+    font = KTFontResolve(font);
     (void) font;
     return (CFArrayRef) [[NSArray array] copy];
 }
 
 CFArrayRef CTFontCopyFeatureSettings(CTFontRef font) {
+    font = KTFontResolve(font);
     (void) font;
     return (CFArrayRef) [[NSArray array] copy];
 }

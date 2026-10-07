@@ -107,6 +107,11 @@ FOUNDATION_EXPORT char *NSUnicodeToSymbol(const unichar *characters,
 
 @implementation NSFont
 
+// for CoreText: apps pass NSFonts to CTFont functions (toll-free bridged on macOS)
+- (CTFontRef) _darlingCTFont {
+    return _ctFont;
+}
+
 #ifndef DARLING
 static NSNibFontNameTranslator *_nibFontTranslator = nil;
 #endif
