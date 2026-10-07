@@ -130,13 +130,20 @@ static inline void _clearCurrentContext() {
 }
 
 - (void) updateViewParameters {
-    NSRect rect = [_view bounds];
+    NSWindow *window = [_view window];
 
-    if ([_view window] != nil)
-        rect = [_view convertRect: rect toView: nil];
+    // there is nothing to draw into until the view is in a window
+    if (window == nil)
+        return;
+
+    NSRect rect = [_view convertRect: [_view bounds] toView: nil];
+
     if (_subwindow == nil) {
-        _subwindow = [[[_view window] _createSubWindowWithFrame: rect] retain];
+        _subwindow = [[window _createSubWindowWithFrame: rect] retain];
         _cglWindow = CGLGetWindow([_subwindow nativeWindow]);
+        // Like on macOS, the context draws into its view as soon as it has one, even if it was
+        // made current before (glutin, used by Alacritty and Neovide, does it in that order).
+        CGLContextAttachToWindow(_glContext, _cglWindow);
     } else {
         [_subwindow setFrame: rect];
     }
@@ -156,6 +163,7 @@ static inline void _clearCurrentContext() {
     _view = view;
 
     if (_cglWindow != NULL) {
+        CGLContextAttachToWindow(_glContext, NULL);
         CGLDestroyWindow(_cglWindow);
         _cglWindow = NULL;
     }
