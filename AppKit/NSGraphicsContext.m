@@ -203,6 +203,11 @@ NSMutableArray *NSCurrentFocusStack() {
     return [[NSGraphicsContext currentContext] isDrawingToScreen];
 }
 
+// the 10.10 name for graphicsPort
+- (CGContextRef) CGContext {
+    return _graphicsPort;
+}
+
 - (CGContextRef) graphicsPort {
     return _graphicsPort;
 }

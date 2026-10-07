@@ -34,8 +34,41 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     return [[NSDisplay currentDisplay] scrollerWidth];
 }
 
+// scrollers here always take space and are drawn the legacy way
 + (NSScrollerStyle) preferredScrollerStyle {
-    NSUnimplementedMethod();
+    return NSScrollerStyleLegacy;
+}
+
++ (CGFloat) scrollerWidthForControlSize: (NSControlSize) controlSize
+                          scrollerStyle: (NSScrollerStyle) scrollerStyle
+{
+    CGFloat width = [self scrollerWidth];
+
+    switch (controlSize) {
+    case NSControlSizeSmall:
+        return floor(width * 0.73);
+    case NSControlSizeMini:
+        return floor(width * 0.6);
+    default:
+        return width;
+    }
+}
+
++ (CGFloat) scrollerWidthForControlSize: (NSControlSize) controlSize {
+    return [self scrollerWidthForControlSize: controlSize
+                               scrollerStyle: NSScrollerStyleLegacy];
+}
+
++ (BOOL) isCompatibleWithOverlayScrollers {
+    return self == [NSScroller class];
+}
+
+- (NSScrollerKnobStyle) knobStyle {
+    return _knobStyle;
+}
+
+- (void) setKnobStyle: (NSScrollerKnobStyle) style {
+    _knobStyle = style;
 }
 /* OS X has a global default "AppleScrollBarVariant" with the values: Single,
  DoubleMin, DoubleMax, and DoubleBoth This controls the default position of the
@@ -167,6 +200,10 @@ static NSAppleScrollBarVariant appleScrollBarVariant(NSScroller *self) {
         _knobProportion = 1;
 
     [self setNeedsDisplay: YES];
+}
+
+- (void) setKnobProportion: (CGFloat) zeroToOneKnob {
+    [self setFloatValue: _floatValue knobProportion: zeroToOneKnob];
 }
 
 - (double) doubleValue {

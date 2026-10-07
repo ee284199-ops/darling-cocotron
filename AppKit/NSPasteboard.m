@@ -99,8 +99,9 @@ const NSPasteboardReadingOptionKey
 }
 
 - (NSInteger) clearContents {
-    NSUnimplementedMethod();
-    return 0;
+    [self declareTypes: @[] owner: nil];
+
+    return [self changeCount];
 }
 
 - (oneway void) releaseGlobally {

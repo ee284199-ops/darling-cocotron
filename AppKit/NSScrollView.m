@@ -851,6 +851,10 @@ static Class _rulerViewClass = nil;
     _allowsMagnification = value;
 }
 
+- (void) flashScrollers {
+    // There is no scroller flash animation on this backend.
+}
+
 - (void) tile {
     NSRect frame;
 

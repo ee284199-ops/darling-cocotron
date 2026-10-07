@@ -146,4 +146,6 @@ APPKIT_EXPORT NSString *const NSScrollViewDidLiveScrollNotification;
 - (void) tile;
 - (void) reflectScrolledClipView: (NSClipView *) clipView;
 
+- (void) flashScrollers;
+
 @end

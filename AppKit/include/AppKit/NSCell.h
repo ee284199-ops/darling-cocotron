@@ -80,7 +80,12 @@ typedef enum {
 typedef NS_ENUM(NSUInteger, NSControlSize) {
     NSRegularControlSize,
     NSSmallControlSize,
-    NSMiniControlSize
+    NSMiniControlSize,
+
+    NSControlSizeRegular = NSRegularControlSize,
+    NSControlSizeSmall = NSSmallControlSize,
+    NSControlSizeMini = NSMiniControlSize,
+    NSControlSizeLarge = 3,
 };
 
 typedef NSUInteger NSControlTint;
