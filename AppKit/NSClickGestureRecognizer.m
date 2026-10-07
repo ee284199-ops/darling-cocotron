@@ -18,17 +18,116 @@
 */
 
 #import <AppKit/NSClickGestureRecognizer.h>
+#import <AppKit/NSGestureRecognizer_Private.h>
+#import <AppKit/NSView.h>
 
 @implementation NSClickGestureRecognizer
 
-- (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
-{
-    return [NSMethodSignature signatureWithObjCTypes: "v@:"];
+- (instancetype) init {
+    self = [super init];
+
+    _buttonMask = 0x1;
+    _numberOfClicksRequired = 1;
+    _numberOfTouchesRequired = 1;
+
+    return self;
 }
 
-- (void)forwardInvocation:(NSInvocation *)anInvocation
-{
-    NSLog(@"Stub called: %@ in %@", NSStringFromSelector([anInvocation selector]), [self class]);
+- (instancetype) initWithTarget: (id) target action: (SEL) action {
+    self = [super initWithTarget: target action: action];
+
+    _buttonMask = 0x1;
+    _numberOfClicksRequired = 1;
+    _numberOfTouchesRequired = 1;
+
+    return self;
+}
+
+- initWithCoder: (NSCoder *) coder {
+    self = [super initWithCoder: coder];
+
+    if (_buttonMask == 0)
+        _buttonMask = 0x1;
+    if (_numberOfClicksRequired == 0)
+        _numberOfClicksRequired = 1;
+    if (_numberOfTouchesRequired == 0)
+        _numberOfTouchesRequired = 1;
+
+    return self;
+}
+
+- (void) encodeWithCoder: (NSCoder *) coder {
+    [super encodeWithCoder: coder];
+}
+
+- (NSUInteger) buttonMask {
+    return _buttonMask;
+}
+
+- (void) setButtonMask: (NSUInteger) buttonMask {
+    _buttonMask = buttonMask;
+}
+
+- (NSUInteger) numberOfClicksRequired {
+    return _numberOfClicksRequired;
+}
+
+- (void) setNumberOfClicksRequired: (NSUInteger) numberOfClicksRequired {
+    _numberOfClicksRequired = numberOfClicksRequired;
+}
+
+- (NSUInteger) numberOfTouchesRequired {
+    return _numberOfTouchesRequired;
+}
+
+- (void) setNumberOfTouchesRequired: (NSUInteger) numberOfTouchesRequired {
+    _numberOfTouchesRequired = numberOfTouchesRequired;
+}
+
+- (void) mouseUp: (NSEvent *) event {
+    NSUInteger buttonMask;
+    NSView *view;
+    NSPoint location;
+
+    switch ([event type]) {
+    case NSLeftMouseUp:
+        buttonMask = 0x1;
+        break;
+    case NSRightMouseUp:
+        buttonMask = 0x2;
+        break;
+    default:
+        buttonMask = 1 << [event buttonNumber];
+        break;
+    }
+
+    if (!(_buttonMask & buttonMask)) {
+        [self reset];
+        return;
+    }
+
+    if ([event clickCount] < _numberOfClicksRequired)
+        return;
+
+    view = [self view];
+    if (view != nil) {
+        location = [view convertPoint: [event locationInWindow]
+                             fromView: nil];
+        if (!NSPointInRect(location, [view bounds])) {
+            [self reset];
+            return;
+        }
+    }
+
+    [self _recognizeWithState: NSGestureRecognizerStateEnded];
+}
+
+- (void) rightMouseUp: (NSEvent *) event {
+    [self mouseUp: event];
+}
+
+- (void) otherMouseUp: (NSEvent *) event {
+    [self mouseUp: event];
 }
 
 @end

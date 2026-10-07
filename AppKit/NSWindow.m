@@ -27,6 +27,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSEvent.h>
 #import <AppKit/NSEvent_CoreGraphics.h>
 #import <AppKit/NSGraphics.h>
+#import <AppKit/NSGestureRecognizer_Private.h>
 #import <AppKit/NSImage.h>
 #import <AppKit/NSMainMenuView.h>
 #import <AppKit/NSMenu.h>
@@ -136,6 +137,7 @@ NSInteger NSBitsPerPixelFromDepth(NSWindowDepth depth) {
 @interface NSWindow ()
 
 - (NSRect) zoomedFrame;
+- (void) _deliverMouseEventToGestureRecognizers: (NSEvent *) event;
 
 @end
 
@@ -2431,10 +2433,58 @@ static BOOL _allowsAutomaticWindowTabbing;
     NSUnimplementedMethod();
 }
 
+- (void) _deliverMouseEventToGestureRecognizers: (NSEvent *) event {
+    NSEventType type = [event type];
+    NSPoint location;
+    NSView *view;
+
+    switch (type) {
+    case NSLeftMouseDown:
+    case NSRightMouseDown:
+    case NSOtherMouseDown:
+    case NSLeftMouseUp:
+    case NSRightMouseUp:
+    case NSOtherMouseUp:
+    case NSLeftMouseDragged:
+    case NSRightMouseDragged:
+    case NSOtherMouseDragged:
+        break;
+    default:
+        return;
+    }
+
+    switch (type) {
+    case NSLeftMouseDown:
+    case NSRightMouseDown:
+    case NSOtherMouseDown:
+        location = [event locationInWindow];
+        break;
+    default:
+        // Drags and ups belong to the view that received the mouse down.
+        location = _mouseDownLocationInWindow;
+        break;
+    }
+
+    view = [_backgroundView hitTest: location];
+
+    for (; view != nil; view = [view superview]) {
+        NSArray *recognizers = [[view gestureRecognizers] copy];
+
+        for (NSGestureRecognizer *recognizer in recognizers) {
+            if ([recognizer isEnabled])
+                [recognizer _handleMouseEvent: event];
+        }
+
+        [recognizers release];
+    }
+}
+
 - (void) sendEvent: (NSEvent *) event {
     // Some events can cause our window to be destroyed
     // So make sure self lives at least through this current run loop...
     [[self retain] autorelease];
+
+    [self _deliverMouseEventToGestureRecognizers: event];
 
     if (_sheetContext != nil) {
         NSView *view = [_backgroundView hitTest: [event locationInWindow]];

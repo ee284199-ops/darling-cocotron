@@ -98,6 +98,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSLayoutManager.h>
 #import <AppKit/NSLevelIndicator.h>
 #import <AppKit/NSLevelIndicatorCell.h>
+#import <AppKit/NSMagnificationGestureRecognizer.h>
 #import <AppKit/NSMatrix.h>
 #import <AppKit/NSMenu.h>
 #import <AppKit/NSMenuItem.h>
@@ -118,6 +119,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSPDFImageRep.h>
 #import <AppKit/NSPageController.h>
 #import <AppKit/NSPageLayout.h>
+#import <AppKit/NSPanGestureRecognizer.h>
 #import <AppKit/NSPanel.h>
 #import <AppKit/NSParagraphStyle.h>
 #import <AppKit/NSPasteboard.h>
@@ -129,12 +131,14 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSPopUpButtonCell.h>
 #import <AppKit/NSPopover.h>
 #import <AppKit/NSPopoverTouchBarItem.h>
+#import <AppKit/NSPressGestureRecognizer.h>
 #import <AppKit/NSPrintInfo.h>
 #import <AppKit/NSPrintOperation.h>
 #import <AppKit/NSPrintPanel.h>
 #import <AppKit/NSPrinter.h>
 #import <AppKit/NSProgressIndicator.h>
 #import <AppKit/NSResponder.h>
+#import <AppKit/NSRotationGestureRecognizer.h>
 #import <AppKit/NSRuleEditor.h>
 #import <AppKit/NSRulerMarker.h>
 #import <AppKit/NSRulerView.h>

@@ -29,6 +29,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSEvent.h>
 #import <AppKit/NSGraphics.h>
 #import <AppKit/NSGraphicsContextFunctions.h>
+#import <AppKit/NSGestureRecognizer_Private.h>
 #import <AppKit/NSMenu.h>
 #import <AppKit/NSObject+BindingSupport.h>
 #import <AppKit/NSPasteboard.h>
@@ -481,6 +482,7 @@ typedef struct __VFlags {
 
     [_inputContext release];
     [_appearance release];
+    [_gestureRecognizers release];
     [_identifier release];
 
     [super dealloc];
@@ -1501,6 +1503,32 @@ static inline void buildTransformsIfNeeded(NSView *self) {
     [self _trackingAreasChanged];
 }
 
+- (NSArray *) gestureRecognizers {
+    return _gestureRecognizers;
+}
+
+- (void) setGestureRecognizers: (NSArray *) gestureRecognizers {
+    [_gestureRecognizers release];
+    _gestureRecognizers =
+            [[NSMutableArray alloc] initWithArray: gestureRecognizers];
+
+    for (NSGestureRecognizer *gestureRecognizer in _gestureRecognizers)
+        [gestureRecognizer _setView: self];
+}
+
+- (void) addGestureRecognizer: (NSGestureRecognizer *) gestureRecognizer {
+    if (_gestureRecognizers == nil)
+        _gestureRecognizers = [[NSMutableArray alloc] init];
+
+    [_gestureRecognizers addObject: gestureRecognizer];
+    [gestureRecognizer _setView: self];
+}
+
+- (void) removeGestureRecognizer: (NSGestureRecognizer *) gestureRecognizer {
+    [_gestureRecognizers removeObjectIdenticalTo: gestureRecognizer];
+    [gestureRecognizer _setView: nil];
+}
+
 - (NSTrackingRectTag) addTrackingRect: (NSRect) rect
                                 owner: owner
                              userData: (void *) userData
@@ -2210,8 +2238,7 @@ static NSView *viewBeingPrinted = nil;
 }
 
 - (BOOL) canDrawConcurrently {
-    NSUnimplementedMethod();
-    return NO;
+    return _canDrawConcurrently;
 }
 
 - (void) viewWillDraw {
@@ -2219,7 +2246,7 @@ static NSView *viewBeingPrinted = nil;
 }
 
 - (void) setCanDrawConcurrently: (BOOL) canDraw {
-    NSUnimplementedMethod();
+    _canDrawConcurrently = canDraw;
 }
 
 - (void) _lockFocusInContext: (NSGraphicsContext *) context {

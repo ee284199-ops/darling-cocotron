@@ -21,6 +21,24 @@
 #import <Foundation/Foundation.h>
 #import <AppKit/NSGestureRecognizer.h>
 
-@interface NSPanGestureRecognizer : NSGestureRecognizer <NSCoding>
+@interface NSPanGestureRecognizer : NSGestureRecognizer <NSCoding> {
+    NSUInteger _buttonMask;
+    NSUInteger _numberOfTouchesRequired;
+    NSPoint _panStartLocationInWindow;
+    NSPoint _translationOffset;
+    BOOL _tracking;
+}
+
+@property NSUInteger buttonMask;
+- (NSUInteger) buttonMask;
+- (void) setButtonMask: (NSUInteger) buttonMask;
+
+@property NSUInteger numberOfTouchesRequired;
+- (NSUInteger) numberOfTouchesRequired;
+- (void) setNumberOfTouchesRequired: (NSUInteger) numberOfTouchesRequired;
+
+- (NSPoint) translationInView: (NSView *) view;
+- (void) setTranslation: (NSPoint) translation inView: (NSView *) view;
+- (NSPoint) velocityInView: (NSView *) view;
 
 @end

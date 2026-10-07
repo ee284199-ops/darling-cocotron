@@ -32,7 +32,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 @class NSWindow, NSMenu, NSMenuItem, NSCursor, NSClipView, NSPasteboard,
         NSTextInputContext, NSImage, NSBitmapImageRep, NSScrollView,
-        NSTrackingArea, NSShadow, NSScreen, CALayer, CIFilter, CALayerContext;
+        NSTrackingArea, NSShadow, NSScreen, CALayer, CIFilter, CALayerContext,
+        NSGestureRecognizer;
 
 // See Cocoa Event Handling Guide : Using Tracking-Area Objects : Compatibility
 // Issues
@@ -140,8 +141,10 @@ APPKIT_EXPORT const NSViewFullScreenModeOptionKey NSFullScreenModeApplicationPre
 
     NSAppearance *_appearance;
     NSTextInputContext *_inputContext;
+    NSMutableArray *_gestureRecognizers;
     BOOL _wantsBestResolutionOpenGLSurface;
     BOOL _wantsExtendedDynamicRangeOpenGLSurface;
+    BOOL _canDrawConcurrently;
     BOOL _clipsToBounds;
 }
 
@@ -287,6 +290,11 @@ APPKIT_EXPORT const NSViewFullScreenModeOptionKey NSFullScreenModeApplicationPre
 - (void) addTrackingArea: (NSTrackingArea *) trackingArea;
 - (void) removeTrackingArea: (NSTrackingArea *) trackingArea;
 - (void) updateTrackingAreas;
+
+- (NSArray *) gestureRecognizers;
+- (void) setGestureRecognizers: (NSArray *) gestureRecognizers;
+- (void) addGestureRecognizer: (NSGestureRecognizer *) gestureRecognizer;
+- (void) removeGestureRecognizer: (NSGestureRecognizer *) gestureRecognizer;
 
 - (NSTrackingRectTag) addTrackingRect: (NSRect) rect
                                 owner: object

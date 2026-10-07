@@ -21,5 +21,22 @@
 #import <AppKit/NSGestureRecognizer.h>
 #import <Foundation/Foundation.h>
 
-@interface NSClickGestureRecognizer : NSGestureRecognizer <NSCoding>
+@interface NSClickGestureRecognizer : NSGestureRecognizer <NSCoding> {
+    NSUInteger _buttonMask;
+    NSUInteger _numberOfClicksRequired;
+    NSUInteger _numberOfTouchesRequired;
+}
+
+@property NSUInteger buttonMask;
+- (NSUInteger) buttonMask;
+- (void) setButtonMask: (NSUInteger) buttonMask;
+
+@property NSUInteger numberOfClicksRequired;
+- (NSUInteger) numberOfClicksRequired;
+- (void) setNumberOfClicksRequired: (NSUInteger) numberOfClicksRequired;
+
+@property NSUInteger numberOfTouchesRequired;
+- (NSUInteger) numberOfTouchesRequired;
+- (void) setNumberOfTouchesRequired: (NSUInteger) numberOfTouchesRequired;
+
 @end

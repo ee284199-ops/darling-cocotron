@@ -1,7 +1,7 @@
 /*
  This file is part of Darling.
 
- Copyright (C) 2021 Lubos Dolezel
+ Copyright (C) 2025 Darling Developers
 
  Darling is free software: you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
@@ -17,17 +17,14 @@
  along with Darling.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#import <AppKit/NSPulseGestureRecognizer.h>
+#import <AppKit/AppKitExport.h>
+#import <Foundation/Foundation.h>
+#import <AppKit/NSGestureRecognizer.h>
 
-@implementation NSPulseGestureRecognizer
+@interface NSMagnificationGestureRecognizer : NSGestureRecognizer <NSCoding>
 
-- initWithCoder: (NSCoder *) coder {
-    self = [super initWithCoder: coder];
-    return self;
-}
-
-- (void) encodeWithCoder: (NSCoder *) coder {
-    [super encodeWithCoder: coder];
-}
+@property CGFloat magnification;
+- (CGFloat) magnification;
+- (void) setMagnification: (CGFloat) magnification;
 
 @end
