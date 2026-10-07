@@ -294,6 +294,23 @@ static void O2SurfaceWrite_argb8u_to_BGRA8888(O2Surface *self, int x, int y,
     }
 }
 
+static void O2SurfaceWrite_argb8u_to_ARGB8888(O2Surface *self, int x, int y,
+                                              O2argb8u *span, int length)
+{
+    uint8_t *scanline = self->_pixelBytes + y * self->_bytesPerRow;
+    int i;
+
+    scanline += x * 4;
+    for (i = 0; i < length; i++) {
+        O2argb8u rgba = *span++;
+
+        *scanline++ = rgba.a;
+        *scanline++ = rgba.r;
+        *scanline++ = rgba.g;
+        *scanline++ = rgba.b;
+    }
+}
+
 static void O2SurfaceWrite_argb32f_to_RGBA4444(O2Surface *self, int x, int y,
                                                O2argb32f *span, int length)
 {
@@ -371,7 +388,9 @@ static void O2SurfaceWrite_argb32f_to_argb8u_to_ANY(O2Surface *self, int x,
         span8888[i].b = O2ByteFromFloat(rgba.b);
         span8888[i].a = O2ByteFromFloat(rgba.a);
     }
-    self->_writeargb8u(self, x, y, span8888, length);
+    // a format with no writer at all: drop the span rather than call NULL
+    if (self->_writeargb8u != NULL)
+        self->_writeargb8u(self, x, y, span8888, length);
 }
 
 static BOOL initFunctionsForParameters(O2Surface *self, size_t bitsPerComponent,
@@ -424,8 +443,10 @@ static BOOL initFunctionsForParameters(O2Surface *self, size_t bitsPerComponent,
                 case kO2ImageAlphaNone:
                     break;
 
+                // for the skip formats the unused byte gets the (opaque) alpha
                 case kO2ImageAlphaLast:
                 case kO2ImageAlphaPremultipliedLast:
+                case kO2ImageAlphaNoneSkipLast:
                     switch (bitmapInfo & kO2BitmapByteOrderMask) {
                     case kO2BitmapByteOrderDefault:
                     case kO2BitmapByteOrder16Little:
@@ -444,23 +465,23 @@ static BOOL initFunctionsForParameters(O2Surface *self, size_t bitsPerComponent,
 
                     break;
 
+                // Skia draws glyphs into NoneSkipFirst contexts; without a writer for them,
+                // drawing text called a NULL span writer
+                case kO2ImageAlphaFirst:
                 case kO2ImageAlphaPremultipliedFirst:
+                case kO2ImageAlphaNoneSkipFirst:
                     switch (bitmapInfo & kO2BitmapByteOrderMask) {
                     case kO2BitmapByteOrderDefault:
                     case kO2BitmapByteOrder16Little:
                     case kO2BitmapByteOrder32Little:
                         self->_writeargb8u = O2SurfaceWrite_argb8u_to_BGRA8888;
                         return YES;
+
+                    case kO2BitmapByteOrder16Big:
+                    case kO2BitmapByteOrder32Big:
+                        self->_writeargb8u = O2SurfaceWrite_argb8u_to_ARGB8888;
+                        return YES;
                     }
-                    break;
-
-                case kO2ImageAlphaFirst:
-                    break;
-
-                case kO2ImageAlphaNoneSkipLast:
-                    break;
-
-                case kO2ImageAlphaNoneSkipFirst:
                     break;
                 }
             } else if ([colorSpace type] == kO2ColorSpaceModelCMYK) {
@@ -673,7 +694,21 @@ void O2SurfaceWriteSpan_argb8u_PRE(O2Surface *self, int x, int y,
     if (length == 0)
         return;
 
-    self->_writeargb8u(self, x, y, span, length);
+    if (self->_writeargb8u != NULL) {
+        self->_writeargb8u(self, x, y, span, length);
+        return;
+    }
+
+    // gray, gray+alpha, CMYK and float surfaces only have a floating point writer
+    if (self->_writeargb32f != O2SurfaceWrite_argb32f_to_argb8u_to_ANY) {
+        O2argb32f span32f[length];
+        int i;
+
+        for (i = 0; i < length; i++)
+            span32f[i] = O2argb32fInit(span[i].r / 255.0, span[i].g / 255.0,
+                                       span[i].b / 255.0, span[i].a / 255.0);
+        self->_writeargb32f(self, x, y, span32f, length);
+    }
 }
 
 void O2SurfaceWriteSpan_largb32f_PRE(O2Surface *self, int x, int y,
