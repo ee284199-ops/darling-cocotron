@@ -1,6 +1,17 @@
 #import <Onyx2D/O2Font_freetype.h>
 #ifdef FREETYPE_PRESENT
 #import <Onyx2D/O2Encoding.h>
+#import <Foundation/NSData.h>
+#import <Foundation/NSDictionary.h>
+#import <Foundation/NSLock.h>
+#include <dispatch/dispatch.h>
+#include <fcntl.h>
+#include <limits.h>
+#include <stdio.h>
+#include <string.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 @implementation O2Font_freetype
 
@@ -26,6 +37,58 @@ FT_Library O2FontSharedFreeTypeLibrary() {
     }
 
     return library;
+}
+
+// Font objects are created per size (CoreText, and Skia through it, makes a CTFont for every size
+// and transform), and each FT_New_Face mapped the whole file again: 31 MB each time for Noto Sans
+// CJK. Faces keep their own state, but share one mapping of their file, kept for the process's life.
+FT_Error O2FontFreeTypeNewFace(const char *path, FT_Long index, FT_Face *face) {
+    static NSMutableDictionary *files = nil;
+    static NSLock *lock = nil;
+    static dispatch_once_t once;
+    NSString *key;
+    NSData *data;
+
+    dispatch_once(&once, ^{
+        files = [[NSMutableDictionary alloc] init];
+        lock = [[NSLock alloc] init];
+    });
+
+    key = [NSString stringWithUTF8String: path];
+    [lock lock];
+    data = [files objectForKey: key];
+    if (data == nil) {
+        int fd = open(path, O_RDONLY | O_CLOEXEC);
+        struct stat info;
+
+        // fontconfig runs natively and lists host paths; the host's root is /Volumes/SystemRoot
+        if (fd < 0 && strncmp(path, "/Volumes/SystemRoot/", 20) != 0) {
+            char hostPath[PATH_MAX];
+
+            snprintf(hostPath, sizeof(hostPath), "/Volumes/SystemRoot%s", path);
+            fd = open(hostPath, O_RDONLY | O_CLOEXEC);
+        }
+
+        if (fd >= 0 && fstat(fd, &info) == 0 && info.st_size > 0) {
+            void *bytes = mmap(NULL, (size_t) info.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
+
+            if (bytes != MAP_FAILED) {
+                data = [NSData dataWithBytesNoCopy: bytes
+                                            length: (NSUInteger) info.st_size
+                                      freeWhenDone: NO];
+                [files setObject: data forKey: key];
+            }
+        }
+        if (fd >= 0)
+            close(fd);
+    }
+    [lock unlock];
+
+    if (data == nil)
+        return FT_Err_Cannot_Open_Resource;
+
+    return FT_New_Memory_Face(O2FontSharedFreeTypeLibrary(), [data bytes],
+                              (FT_Long) [data length], index, face);
 }
 
 static void addAppFont(FcConfig *config, NSString *path) {
@@ -126,8 +189,7 @@ FcConfig *O2FontSharedFontConfig() {
     }
 
     FT_Face face;
-    FT_Error error = FT_New_Face(O2FontSharedFreeTypeLibrary(),
-                                 [filename fileSystemRepresentation], 0, &face);
+    FT_Error error = O2FontFreeTypeNewFace([filename fileSystemRepresentation], 0, &face);
 
     if (error != 0) {
         NSLog(@"FT_New_Face() = %d", error);

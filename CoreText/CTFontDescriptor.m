@@ -538,7 +538,7 @@ CGFontRef KTFontDescriptorCopyGraphicsFont(CTFontDescriptorRef descriptor) {
             if (path == nil)
                 return NULL;
 
-            if (FT_New_Face(O2FontSharedFreeTypeLibrary(), [path fileSystemRepresentation], index, &face) != 0)
+            if (O2FontFreeTypeNewFace([path fileSystemRepresentation], index, &face) != 0)
                 return NULL;
 
             return (CGFontRef) [[O2Font_freetype alloc] initWithFace: face];

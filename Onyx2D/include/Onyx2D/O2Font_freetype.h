@@ -35,6 +35,9 @@ FT_Face O2FontFreeTypeFace(O2Font_freetype *self);
 FT_Library O2FontSharedFreeTypeLibrary();
 FcConfig *O2FontSharedFontConfig();
 
+// Like FT_New_Face, but every face of a file shares one read-only mapping of it.
+FT_Error O2FontFreeTypeNewFace(const char *path, FT_Long index, FT_Face *face);
+
 @end
 
 #endif
