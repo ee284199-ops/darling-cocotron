@@ -24,6 +24,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSPasteboard.h>
 #import <AppKit/NSRaise.h>
 
+// in NSImage.m
+CGImageRef NSImageCreateCGImageByDrawing(NSSize size, void (^draw)(NSRect rect));
+
 @implementation NSImageRep
 
 static NSMutableArray *_registeredClasses = nil;
@@ -349,6 +352,20 @@ static NSMutableArray *_registeredClasses = nil;
     CGContextRestoreGState(context);
 
     return result;
+}
+
+- (CGImageRef) CGImageForProposedRect: (NSRect *) proposedDestRect
+                              context: (NSGraphicsContext *) referenceContext
+                                hints: (NSDictionary *) hints
+{
+    NSSize size = proposedDestRect != NULL ? proposedDestRect->size : [self size];
+
+    if (size.width <= 0 || size.height <= 0)
+        return NULL;
+
+    return NSImageCreateCGImageByDrawing(size, ^(NSRect rect) {
+        [self drawInRect: rect];
+    });
 }
 
 - (NSString *) description {

@@ -20,7 +20,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSBitmapImageRep.h>
 #import <AppKit/NSGraphics.h>
 
-@class NSImageRep;
+@class NSGraphicsContext, NSImageRep;
 
 typedef enum {
     NSImageCacheDefault,
@@ -109,6 +109,9 @@ typedef enum {
 - (void) cancelIncrementalLoad;
 
 - (NSData *) TIFFRepresentation;
+- (CGImageRef) CGImageForProposedRect: (NSRect *) proposedDestRect
+                              context: (NSGraphicsContext *) referenceContext
+                                hints: (NSDictionary *) hints;
 - (NSData *) TIFFRepresentationUsingCompression: (NSTIFFCompression) compression
                                          factor: (float) factor;
 

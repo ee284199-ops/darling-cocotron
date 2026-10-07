@@ -1251,12 +1251,75 @@ NSImageName const NSImageNameTouchBarVolumeUpTemplate =
      respectFlipped: (BOOL) respectFlipped
                  hints: (NSDictionary<NSString *, id> *) hints
 {
-    printf("STUB %s\n", __PRETTY_FUNCTION__);
+    NSGraphicsContext *graphicsContext = [NSGraphicsContext currentContext];
+    CGContextRef context = [graphicsContext graphicsPort];
+    // in a flipped view, flip the image back so that it shows upright
+    BOOL flip = respectFlipped && [graphicsContext isFlipped];
+
+    if (flip) {
+        CGContextSaveGState(context);
+        CGContextTranslateCTM(context, 0, NSMinY(rect) + NSMaxY(rect));
+        CGContextScaleCTM(context, 1, -1);
+    }
 
     [self drawInRect: rect
             fromRect: source
            operation: operation
             fraction: fraction];
+
+    if (flip)
+        CGContextRestoreGState(context);
+}
+
+// Lets the block draw into a new bitmap of the given size and returns the bitmap as an
+// autoreleased CGImage.
+CGImageRef NSImageCreateCGImageByDrawing(NSSize size, void (^draw)(NSRect rect)) {
+    size_t width = MAX(1, (size_t) ceil(size.width));
+    size_t height = MAX(1, (size_t) ceil(size.height));
+    CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
+    CGContextRef context = CGBitmapContextCreate(NULL, width, height, 8, width * 4, colorSpace,
+            kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Little);
+    CGImageRef image;
+
+    CGColorSpaceRelease(colorSpace);
+    if (context == NULL)
+        return NULL;
+
+    [NSGraphicsContext saveGraphicsState];
+    [NSGraphicsContext setCurrentContext:
+            [NSGraphicsContext graphicsContextWithGraphicsPort: context flipped: NO]];
+    draw(NSMakeRect(0, 0, width, height));
+    [NSGraphicsContext restoreGraphicsState];
+
+    image = CGBitmapContextCreateImage(context);
+    CGContextRelease(context);
+    return (CGImageRef)[(id) image autorelease];
+}
+
+- (CGImageRef) CGImageForProposedRect: (NSRect *) proposedDestRect
+                              context: (NSGraphicsContext *) referenceContext
+                                hints: (NSDictionary *) hints
+{
+    NSSize size = proposedDestRect != NULL ? proposedDestRect->size : [self size];
+
+    // a bitmap with the size that is asked for (any size if none is) can be used as it is
+    for (NSImageRep *rep in [self representations]) {
+        if (![rep isKindOfClass: [NSBitmapImageRep class]])
+            continue;
+        if (proposedDestRect == NULL || ([rep pixelsWide] == (NSInteger) size.width &&
+                                         [rep pixelsHigh] == (NSInteger) size.height))
+            return [(NSBitmapImageRep *) rep CGImage];
+    }
+
+    if (size.width <= 0 || size.height <= 0)
+        return NULL;
+
+    return NSImageCreateCGImageByDrawing(size, ^(NSRect rect) {
+        [self drawInRect: rect
+                fromRect: NSZeroRect
+               operation: NSCompositeCopy
+                fraction: 1.0];
+    });
 }
 
 - (NSString *) description {

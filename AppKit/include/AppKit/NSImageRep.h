@@ -19,8 +19,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 #import <Foundation/NSGeometry.h>
 #import <Foundation/NSObject.h>
+#import <CoreGraphics/CGImage.h>
 
-@class NSArray, NSData, NSPasteboard, NSURL;
+@class NSArray, NSData, NSGraphicsContext, NSPasteboard, NSURL;
 
 @interface NSImageRep : NSObject <NSCopying> {
     NSSize _size;
@@ -77,5 +78,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 - (BOOL) draw;
 - (BOOL) drawAtPoint: (NSPoint) point;
 - (BOOL) drawInRect: (NSRect) rect;
+- (CGImageRef) CGImageForProposedRect: (NSRect *) proposedDestRect
+                              context: (NSGraphicsContext *) referenceContext
+                                hints: (NSDictionary *) hints;
 
 @end
