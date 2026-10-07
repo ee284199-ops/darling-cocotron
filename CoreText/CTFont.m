@@ -113,6 +113,26 @@ static id KTFontDescriptorAttribute(CTFontRef font, CFStringRef key) {
     return [KTFontDescriptorAttributes(font) objectForKey: (NSString *) key];
 }
 
+// FreeType only flags fonts whose glyphs all have one width. fontconfig also calls "dual width"
+// fonts monospace (Noto Sans Mono CJK: fixed-width Latin, double-width CJK), and so do terminals.
+static BOOL KTFaceHasFixedWidthLatin(FT_Face face) {
+    const FT_ULong probes[] = { 'i', 'W', 'm', '1', '.' };
+    FT_Pos width = 0;
+    size_t i;
+
+    for (i = 0; i < sizeof(probes) / sizeof(probes[0]); i++) {
+        FT_UInt glyph = FT_Get_Char_Index(face, probes[i]);
+
+        if (glyph == 0 || FT_Load_Glyph(face, glyph, FT_LOAD_NO_SCALE) != 0)
+            return NO;
+        if (i == 0)
+            width = face->glyph->advance.x;
+        else if (face->glyph->advance.x != width)
+            return NO;
+    }
+    return width > 0;
+}
+
 static NSDictionary *KTFontTraitsForFont(CTFontRef font) {
     NSDictionary *traits = KTFontDescriptorAttribute(font, kCTFontTraitsAttribute);
 
@@ -128,7 +148,7 @@ static NSDictionary *KTFontTraitsForFont(CTFontRef font) {
                 symbolic |= kCTFontTraitBold;
             if (face->style_flags & FT_STYLE_FLAG_ITALIC)
                 symbolic |= kCTFontTraitItalic;
-            if (face->face_flags & FT_FACE_FLAG_FIXED_WIDTH)
+            if ((face->face_flags & FT_FACE_FLAG_FIXED_WIDTH) || KTFaceHasFixedWidthLatin(face))
                 symbolic |= kCTFontTraitMonoSpace;
         }
 
