@@ -18,6 +18,7 @@ AN ACTION OF CONTRACT,TORT OR OTHERWISE,ARISING FROM,OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 #import "CGConversions.h"
+#import "CGGradient_Private.h"
 #import <CoreGraphics/CGContext.h>
 #import <Onyx2D/O2Context.h>
 #import <Onyx2D/O2MutablePath.h>
@@ -602,28 +603,194 @@ void CGContextSetShouldSubpixelPositionFonts(CGContextRef context,
                                             shouldSubpixelPositionFonts);
 }
 
+// Evaluates the gradient at the given position in [0,1], interpolating
+// piecewise-linearly between the color stops and clamping outside the first and
+// last stop. The output contains the color components of the gradient's color
+// space, including alpha as the last component.
+static void CGGradientFunctionEvaluate(void *info, const CGFloat *input,
+                                       CGFloat *output)
+{
+    CGGradientRef gradient = (CGGradientRef) info;
+    size_t numberOfComponents = CGGradientGetNumberOfComponents(gradient);
+    size_t numberOfColorStops = CGGradientGetNumberOfColorStops(gradient);
+    const CGFloat *components = CGGradientGetColorComponents(gradient);
+    const CGFloat *locations = CGGradientGetLocations(gradient);
+    const CGFloat *last;
+    CGFloat t = input[0];
+    size_t i;
+
+    if (numberOfColorStops == 0 || numberOfComponents == 0)
+        return;
+
+    if (t <= locations[0]) {
+        for (i = 0; i < numberOfComponents; i++)
+            output[i] = components[i];
+        return;
+    }
+
+    if (t >= locations[numberOfColorStops - 1]) {
+        last = components +
+               (numberOfColorStops - 1) * numberOfComponents;
+        for (i = 0; i < numberOfComponents; i++)
+            output[i] = last[i];
+        return;
+    }
+
+    for (i = 0; i + 1 < numberOfColorStops; i++) {
+        if (t >= locations[i] && t <= locations[i + 1]) {
+            CGFloat span = locations[i + 1] - locations[i];
+            CGFloat f = (span > 0.0) ? (t - locations[i]) / span : 0.0;
+            const CGFloat *a = components + i * numberOfComponents;
+            const CGFloat *b = components + (i + 1) * numberOfComponents;
+            size_t j;
+
+            for (j = 0; j < numberOfComponents; j++)
+                output[j] = a[j] * (1.0 - f) + b[j] * f;
+            return;
+        }
+    }
+
+    // Should not happen for monotonically increasing locations, but fall back
+    // to the last stop.
+    last = components + (numberOfColorStops - 1) * numberOfComponents;
+    for (i = 0; i < numberOfComponents; i++)
+        output[i] = last[i];
+}
+
+static void CGGradientFunctionReleaseInfo(void *info) {
+    CGGradientRelease((CGGradientRef) info);
+}
+
+// Builds the CGFunction used to evaluate the gradient while shading. The
+// function owns a reference to the gradient through its info and releases it
+// when the function is deallocated.
+static CGFunctionRef CGGradientCreateFunction(CGGradientRef gradient) {
+    CGFloat domain[2] = {0.0, 1.0};
+    CGFunctionCallbacks callbacks = {0, CGGradientFunctionEvaluate,
+                                     CGGradientFunctionReleaseInfo};
+    size_t rangeDimension = CGGradientGetNumberOfComponents(gradient);
+
+    return CGFunctionCreate((void *) CGGradientRetain(gradient), 1, domain,
+                            rangeDimension, NULL, &callbacks);
+}
+
 void CGContextDrawLinearGradient(CGContextRef c,
                                  CGGradientRef gradient, CGPoint startPoint, CGPoint endPoint,
                                  CGGradientDrawingOptions options)
 {
-    printf("STUB %s\n", __PRETTY_FUNCTION__);
+    CGFunctionRef function;
+    CGShadingRef shading;
+
+    if (c == NULL || gradient == NULL)
+        return;
+
+    function = CGGradientCreateFunction(gradient);
+    if (function == NULL)
+        return;
+
+    shading = CGShadingCreateAxial(
+            CGGradientGetColorSpace(gradient), startPoint, endPoint, function,
+            (options & kCGGradientDrawsBeforeStartLocation) != 0,
+            (options & kCGGradientDrawsAfterEndLocation) != 0);
+
+    if (shading != NULL) {
+        CGContextDrawShading(c, shading);
+        CGShadingRelease(shading);
+    }
+
+    CGFunctionRelease(function);
 }
 
 void CGContextDrawRadialGradient(CGContextRef c,
                                  CGGradientRef gradient, CGPoint startCenter, CGFloat startRadius,
                                  CGPoint endCenter, CGFloat endRadius, CGGradientDrawingOptions options)
 {
-    printf("STUB %s\n", __PRETTY_FUNCTION__);
+    CGFunctionRef function;
+    CGShadingRef shading;
+
+    if (c == NULL || gradient == NULL)
+        return;
+
+    function = CGGradientCreateFunction(gradient);
+    if (function == NULL)
+        return;
+
+    shading = CGShadingCreateRadial(
+            CGGradientGetColorSpace(gradient), startCenter, startRadius,
+            endCenter, endRadius, function,
+            (options & kCGGradientDrawsBeforeStartLocation) != 0,
+            (options & kCGGradientDrawsAfterEndLocation) != 0);
+
+    if (shading != NULL) {
+        CGContextDrawShading(c, shading);
+        CGShadingRelease(shading);
+    }
+
+    CGFunctionRelease(function);
 }
 
 void CGContextDrawTiledImage(CGContextRef c, CGRect rect, CGImageRef image)
 {
-    printf("STUB %s\n", __PRETTY_FUNCTION__);
+    CGRect clip;
+    CGFloat tileWidth = rect.size.width;
+    CGFloat tileHeight = rect.size.height;
+    CGFloat startX, startY, x, y;
+    unsigned long tileCount = 0;
+    // A sane cap so a tiny tile over a huge clip can't hang the process.
+    const unsigned long maximumTiles = 100000;
+
+    if (c == NULL || image == NULL)
+        return;
+    if (!(tileWidth > 0.0) || !(tileHeight > 0.0))
+        return;
+
+    clip = CGContextGetClipBoundingBox(c);
+    if (CGRectIsEmpty(clip))
+        return;
+
+    // Align the tile grid so that one tile sits exactly at rect.origin, then
+    // start at the first tile that can intersect the clip bounds.
+    startX = rect.origin.x +
+             floor((CGRectGetMinX(clip) - rect.origin.x) / tileWidth) *
+                     tileWidth;
+    startY = rect.origin.y +
+             floor((CGRectGetMinY(clip) - rect.origin.y) / tileHeight) *
+                     tileHeight;
+
+    for (y = startY; y < CGRectGetMaxY(clip); y += tileHeight) {
+        for (x = startX; x < CGRectGetMaxX(clip); x += tileWidth) {
+            CGContextDrawImage(c, CGRectMake(x, y, tileWidth, tileHeight),
+                               image);
+
+            if (++tileCount >= maximumTiles)
+                return;
+        }
+    }
 }
 
 void CGContextShowGlyphsAtPositions(CGContextRef c,
                                     const CGGlyph * glyphs, const CGPoint * Lpositions,
                                     size_t count)
 {
-    printf("STUB %s\n", __PRETTY_FUNCTION__);
+    CGAffineTransform textMatrix;
+    size_t i;
+
+    if (c == NULL || glyphs == NULL || Lpositions == NULL || count == 0)
+        return;
+
+    // Each position is in text space; the text matrix maps it to user space.
+    // The text position is then set to that user space point before drawing
+    // the single glyph, so the matrix is only read, never modified between
+    // glyphs. Restore the original text matrix at the end.
+    textMatrix = CGContextGetTextMatrix(c);
+
+    for (i = 0; i < count; i++) {
+        CGPoint point =
+                CGPointApplyAffineTransform(Lpositions[i], textMatrix);
+
+        CGContextSetTextPosition(c, point.x, point.y);
+        CGContextShowGlyphs(c, &glyphs[i], 1);
+    }
+
+    CGContextSetTextMatrix(c, textMatrix);
 }

@@ -10,6 +10,8 @@ typedef CF_ENUM(uint32_t, CGGradientDrawingOptions)
     kCGGradientDrawsAfterEndLocation = 0x02
 };
 
+COREGRAPHICS_EXPORT CFTypeID CGGradientGetTypeID(void);
+
 CGGradientRef CGGradientCreateWithColorComponents(CGColorSpaceRef colorSpace,
                                                   const CGFloat components[],
                                                   const CGFloat locations[],

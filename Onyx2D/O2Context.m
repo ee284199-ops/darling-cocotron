@@ -21,6 +21,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <Foundation/NSBundle.h>
 #import <Onyx2D/O2BitmapContext.h>
 #import <Onyx2D/O2ClipPhase.h>
+#import <Onyx2D/O2ClipState.h>
 #import <Onyx2D/O2Color.h>
 #import <Onyx2D/O2ColorSpace.h>
 #import <Onyx2D/O2Context.h>
@@ -534,11 +535,59 @@ O2AffineTransform O2ContextGetCTM(O2ContextRef self) {
     return O2GStateUserSpaceTransform(O2ContextCurrentGState(self));
 }
 
+// the bounding box of a rectangle after a transform
+static O2Rect O2RectApplyTransform(O2Rect rect, O2AffineTransform transform) {
+    O2Point corners[4] = {
+            O2PointApplyAffineTransform(O2PointMake(O2RectGetMinX(rect), O2RectGetMinY(rect)), transform),
+            O2PointApplyAffineTransform(O2PointMake(O2RectGetMaxX(rect), O2RectGetMinY(rect)), transform),
+            O2PointApplyAffineTransform(O2PointMake(O2RectGetMinX(rect), O2RectGetMaxY(rect)), transform),
+            O2PointApplyAffineTransform(O2PointMake(O2RectGetMaxX(rect), O2RectGetMaxY(rect)), transform),
+    };
+    O2Float minX = corners[0].x, maxX = corners[0].x;
+    O2Float minY = corners[0].y, maxY = corners[0].y;
+    int i;
+
+    for (i = 1; i < 4; i++) {
+        minX = MIN(minX, corners[i].x);
+        maxX = MAX(maxX, corners[i].x);
+        minY = MIN(minY, corners[i].y);
+        maxY = MAX(maxY, corners[i].y);
+    }
+    return O2RectMake(minX, minY, maxX - minX, maxY - minY);
+}
+
 O2Rect O2ContextGetClipBoundingBox(O2ContextRef self) {
     if (self == nil)
         return O2RectZero;
 
-    return [O2ContextCurrentGState(self) clipBoundingBox];
+    O2GState *gState = O2ContextCurrentGState(self);
+    O2Size size = [self size];
+    O2Rect clip;
+
+    // The device's bounds (very large when the device has no size), cut down by the clip
+    // paths, which the graphics state keeps in device space. Masks are left out, so the box
+    // can be bigger than the clip, which Quartz allows.
+    if (size.width > 0 && size.height > 0)
+        clip = O2RectMake(0, 0, size.width, size.height);
+    else
+        clip = O2RectMake(-1.0e6, -1.0e6, 2.0e6, 2.0e6);
+
+    for (O2ClipPhase *phase in [O2GStateClipState(gState) clipPhases]) {
+        switch (O2ClipPhasePhaseType(phase)) {
+        case O2ClipPhaseNonZeroPath:
+        case O2ClipPhaseEOPath:
+            clip = O2RectIntersection(clip, O2PathGetBoundingBox(O2ClipPhaseObject(phase)));
+            break;
+        case O2ClipPhaseMask:
+            break;
+        }
+    }
+
+    if (clip.size.width <= 0 || clip.size.height <= 0)
+        return O2RectZero;
+
+    return O2RectApplyTransform(
+            clip, O2AffineTransformInvert([gState userSpaceToDeviceSpaceTransform]));
 }
 
 O2AffineTransform O2ContextGetTextMatrix(O2ContextRef self) {
