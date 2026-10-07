@@ -8,10 +8,13 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} \
 )
 
 find_package(Freetype REQUIRED)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(PC_FONTCONFIG fontconfig)
 
 include_directories(
 	${CMAKE_CURRENT_SOURCE_DIR}
 	${FREETYPE_INCLUDE_DIRS}
+	${PC_FONTCONFIG_INCLUDE_DIRS}
 )
 
 set(CoreText_sources
@@ -28,7 +31,6 @@ set(CoreText_sources
 	KTFont.m
 	KTFont_FT.m
 	constants.c
-	stubs.c
 )
 
 set_source_files_properties(${CoreText_sources} LANGUAGE C)
@@ -58,4 +60,5 @@ add_framework(CoreText
 		Onyx2D
 		# native
 		FreeType
+		fontconfig
 )

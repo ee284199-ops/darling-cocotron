@@ -17,15 +17,28 @@ COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <CoreText/KTFont.h>
+#import <CoreText/CTFont.h>
 #import <Foundation/NSArray.h>
 #import <Onyx2D/O2Exceptions.h>
 
 @implementation KTFont
 
 - initWithFont: (CGFontRef) font size: (CGFloat) size {
+    return [self initWithFont: font descriptor: NULL size: size matrix: NULL];
+}
+
+- initWithFont: (CGFontRef) font
+    descriptor: (CTFontDescriptorRef) descriptor
+          size: (CGFloat) size
+        matrix: (const CGAffineTransform *) matrix
+{
     _font = CGFontRetain(font);
     _unitsPerEm = CGFontGetUnitsPerEm(_font);
+    if (_unitsPerEm <= 0)
+        _unitsPerEm = 1000;
     _size = size;
+    _descriptor = (CTFontDescriptorRef) [(id) descriptor retain];
+    _matrix = (matrix != NULL) ? *matrix : CGAffineTransformIdentity;
     return self;
 }
 
@@ -39,10 +52,39 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 - (void) dealloc {
     CGFontRelease(_font);
+    [(id) _descriptor release];
     [super dealloc];
 }
 
+- (CGFontRef) font {
+    return _font;
+}
+
+- (CTFontDescriptorRef) descriptor {
+    return _descriptor;
+}
+
+- (void) setMatrix: (CGAffineTransform) matrix {
+    _matrix = matrix;
+}
+
+- (CGAffineTransform) matrix {
+    return _matrix;
+}
+
+- (unsigned int) unitsPerEm {
+    return (unsigned int) _unitsPerEm;
+}
+
 - (CFStringRef) copyName {
+    if (_descriptor != NULL) {
+        CFStringRef value = (CFStringRef) CTFontDescriptorCopyAttribute(_descriptor, kCTFontDisplayNameAttribute);
+        if (value == NULL)
+            value = (CFStringRef) CTFontDescriptorCopyAttribute(_descriptor, kCTFontNameAttribute);
+        if (value != NULL)
+            return value;
+    }
+
     return CGFontCopyFullName(_font);
 }
 
@@ -159,6 +201,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 {
     O2InvalidAbstractInvocation();
     return nil;
+}
+
+// what CFGetTypeID() asks Objective-C objects for
+- (CFTypeID) _cfTypeID {
+    return CTFontGetTypeID();
 }
 
 @end

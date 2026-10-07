@@ -21,6 +21,65 @@
 #import <CoreText/KTFont_FT.h>
 #import <Onyx2D/O2Font_freetype.h>
 
+#import <Foundation/NSData.h>
+#import <Foundation/NSString.h>
+
+#include <stdlib.h>
+
+#import FT_OUTLINE_H
+#import FT_GLYPH_H
+#import FT_TRUETYPE_TABLES_H
+
+typedef struct {
+    CGMutablePathRef path;
+    CGFloat scale;
+    CGAffineTransform fontMatrix;
+    CGAffineTransform userTransform;
+} KTFTOutlineContext;
+
+static CGPoint KTFTTransformPoint(KTFTOutlineContext *context, const FT_Vector *vector) {
+    CGPoint point = CGPointMake(vector->x * context->scale, vector->y * context->scale);
+
+    point = CGPointApplyAffineTransform(point, context->fontMatrix);
+    point = CGPointApplyAffineTransform(point, context->userTransform);
+    return point;
+}
+
+static int KTFTMoveTo(const FT_Vector *to, void *user) {
+    KTFTOutlineContext *context = (KTFTOutlineContext *) user;
+    CGPoint point = KTFTTransformPoint(context, to);
+
+    CGPathMoveToPoint(context->path, NULL, point.x, point.y);
+    return 0;
+}
+
+static int KTFTLineTo(const FT_Vector *to, void *user) {
+    KTFTOutlineContext *context = (KTFTOutlineContext *) user;
+    CGPoint point = KTFTTransformPoint(context, to);
+
+    CGPathAddLineToPoint(context->path, NULL, point.x, point.y);
+    return 0;
+}
+
+static int KTFTConicTo(const FT_Vector *control, const FT_Vector *to, void *user) {
+    KTFTOutlineContext *context = (KTFTOutlineContext *) user;
+    CGPoint controlPoint = KTFTTransformPoint(context, control);
+    CGPoint point = KTFTTransformPoint(context, to);
+
+    CGPathAddQuadCurveToPoint(context->path, NULL, controlPoint.x, controlPoint.y, point.x, point.y);
+    return 0;
+}
+
+static int KTFTCubicTo(const FT_Vector *control1, const FT_Vector *control2, const FT_Vector *to, void *user) {
+    KTFTOutlineContext *context = (KTFTOutlineContext *) user;
+    CGPoint point1 = KTFTTransformPoint(context, control1);
+    CGPoint point2 = KTFTTransformPoint(context, control2);
+    CGPoint point = KTFTTransformPoint(context, to);
+
+    CGPathAddCurveToPoint(context->path, NULL, point1.x, point1.y, point2.x, point2.y, point.x, point.y);
+    return 0;
+}
+
 @implementation KTFont (KTFont_FT)
 + (id) allocWithZone: (NSZone *) zone {
     return NSAllocateObject([KTFont_FT class], 0, NULL);
@@ -33,26 +92,92 @@
                 size: (CGFloat) size
             language: (NSString *) language
 {
-    O2Font *font = nil;
+    NSString *name = nil;
+    O2Font *font;
+
+    (void) language;
 
     switch (uiFontType) {
-
-    case kCTFontMenuTitleFontType:
-    case kCTFontMenuItemFontType:
-        if (size == 0)
-            size = 12;
-        font = O2FontCreateWithFontName(@"San Francisco");
+    case kCTFontUIFontUserFixedPitch:
+        name = @"monospace";
         break;
 
+    case kCTFontUIFontSystem:
+    case kCTFontUIFontEmphasizedSystem:
+    case kCTFontUIFontSmallSystem:
+    case kCTFontUIFontSmallEmphasizedSystem:
+    case kCTFontUIFontMiniSystem:
+    case kCTFontUIFontMiniEmphasizedSystem:
+    case kCTFontUIFontViews:
+    case kCTFontUIFontApplication:
+    case kCTFontUIFontLabel:
+    case kCTFontUIFontMenuTitle:
+    case kCTFontUIFontMenuItem:
+    case kCTFontUIFontMenuItemMark:
+    case kCTFontUIFontMenuItemCmdKey:
+    case kCTFontUIFontWindowTitle:
+    case kCTFontUIFontPushButton:
+    case kCTFontUIFontUtilityWindowTitle:
+    case kCTFontUIFontAlertHeader:
+    case kCTFontUIFontSystemDetail:
+    case kCTFontUIFontEmphasizedSystemDetail:
+    case kCTFontUIFontToolbar:
+    case kCTFontUIFontSmallToolbar:
+    case kCTFontUIFontMessage:
+    case kCTFontUIFontPalette:
+    case kCTFontUIFontToolTip:
+    case kCTFontUIFontControlContent:
     default:
-        return nil;
+        name = @"sans-serif";
+        break;
     }
 
-    self = [self initWithFont: (CGFontRef)font size: size];
+    if (size == 0)
+        size = 12;
 
+    font = O2FontCreateWithFontName(name);
+    if (font == nil)
+        return nil;
+
+    self = [self initWithFont: (CGFontRef) font size: size];
     [font release];
-
     return self;
+}
+
+- (FT_Face) face {
+    return [(O2Font_freetype *) _font face];
+}
+
+- (CGRect) boundingRect {
+    FT_Face face = [self face];
+    CGFloat scale;
+
+    if (face == NULL)
+        return CGRectZero;
+
+    scale = _size / _unitsPerEm;
+
+    return CGRectMake(face->bbox.xMin * scale, face->bbox.yMin * scale,
+                      (face->bbox.xMax - face->bbox.xMin) * scale,
+                      (face->bbox.yMax - face->bbox.yMin) * scale);
+}
+
+- (CGFloat) underlinePosition {
+    FT_Face face = [self face];
+
+    if (face == NULL)
+        return 0;
+
+    return face->underline_position * _size / _unitsPerEm;
+}
+
+- (CGFloat) underlineThickness {
+    FT_Face face = [self face];
+
+    if (face == NULL)
+        return 0;
+
+    return face->underline_thickness * _size / _unitsPerEm;
 }
 
 - (void) getGlyphs: (CGGlyph *) glyphs
@@ -102,6 +227,55 @@
     FT_Load_Glyph(face, current, FT_LOAD_DEFAULT);
     return NSMakePoint(face->glyph->advance.x / (O2Float)(2 << 5),
                        face->glyph->advance.y / (O2Float)(2 << 5));
+}
+
+- (CGPathRef) createPathForGlyph: (CGGlyph) glyph
+                       transform: (CGAffineTransform *) xform
+{
+    FT_Face face = [self face];
+    KTFTOutlineContext context;
+    FT_Outline_Funcs functions = { KTFTMoveTo, KTFTLineTo, KTFTConicTo, KTFTCubicTo, 0, 0 };
+
+    if (face == NULL)
+        return NULL;
+
+    if (FT_Load_Glyph(face, glyph, FT_LOAD_NO_SCALE | FT_LOAD_NO_BITMAP) != 0)
+        return NULL;
+
+    if (face->glyph->format != FT_GLYPH_FORMAT_OUTLINE)
+        return NULL;
+
+    context.path = CGPathCreateMutable();
+    context.scale = _unitsPerEm != 0 ? _size / _unitsPerEm : 1;
+    context.fontMatrix = _matrix;
+    context.userTransform = (xform != NULL) ? *xform : CGAffineTransformIdentity;
+
+    FT_Outline_Decompose(&face->glyph->outline, &functions, &context);
+
+    return context.path;
+}
+
+- (NSData *) copyTableForTag: (uint32_t) tag {
+    FT_Face face = [self face];
+    FT_ULong length = 0;
+    void *buffer;
+    NSData *data;
+
+    if (face == NULL)
+        return nil;
+
+    if (FT_Load_Sfnt_Table(face, tag, 0, NULL, &length) != 0 || length == 0)
+        return nil;
+
+    buffer = malloc(length);
+    if (FT_Load_Sfnt_Table(face, tag, 0, (FT_Byte *) buffer, &length) != 0) {
+        free(buffer);
+        return nil;
+    }
+
+    data = [[NSData alloc] initWithBytes: buffer length: length];
+    free(buffer);
+    return data;
 }
 
 @end

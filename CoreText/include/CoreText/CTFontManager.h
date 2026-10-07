@@ -18,7 +18,13 @@ CORETEXT_EXPORT bool CTFontManagerRegisterGraphicsFont(CGFontRef font, CFErrorRe
 CORETEXT_EXPORT bool CTFontManagerUnregisterGraphicsFont(CGFontRef font, CFErrorRef *error);
 
 CORETEXT_EXPORT CFArrayRef CTFontManagerCopyAvailableFontFamilyNames(void);
+CORETEXT_EXPORT CFArrayRef CTFontManagerCopyAvailablePostScriptNames(void);
+CORETEXT_EXPORT CFArrayRef CTFontManagerCopyAvailableFontURLs(void);
+
+CORETEXT_EXPORT CTFontDescriptorRef CTFontManagerCreateFontDescriptorFromData(CFDataRef data);
+CORETEXT_EXPORT CFArrayRef CTFontManagerCreateFontDescriptorsFromURL(CFURLRef url);
 
 CORETEXT_EXPORT bool CTFontManagerRegisterFontsForURL(CFURLRef fontURL, CTFontManagerScope scope, CFErrorRef * error);
+CORETEXT_EXPORT bool CTFontManagerUnregisterFontsForURL(CFURLRef fontURL, CTFontManagerScope scope, CFErrorRef * error);
 
 CF_IMPLICIT_BRIDGING_DISABLED

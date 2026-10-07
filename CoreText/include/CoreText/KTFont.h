@@ -18,6 +18,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <CoreGraphics/CoreGraphics.h>
 #import <CoreText/CTFont.h>
+#import <Foundation/NSData.h>
 #import <Foundation/NSString.h>
 
 enum { CGNullGlyph = 0x0 };
@@ -27,15 +28,27 @@ enum { CGNullGlyph = 0x0 };
     CGFloat _size;
     CGFloat _unitsPerEm;
     CGGlyph **_twoLevel;
+    CTFontDescriptorRef _descriptor;
+    CGAffineTransform _matrix;
 }
 
 - initWithFont: (CGFontRef) font size: (CGFloat) size;
+- initWithFont: (CGFontRef) font
+   descriptor: (CTFontDescriptorRef) descriptor
+         size: (CGFloat) size
+       matrix: (const CGAffineTransform *) matrix;
 - initWithUIFontType: (CTFontUIFontType) uiFontType
                 size: (CGFloat) size
             language: (NSString *) language;
 
-- (CFStringRef) copyName;
+- (CGFontRef) font;
+- (CTFontDescriptorRef) descriptor;
+- (void) setMatrix: (CGAffineTransform) matrix;
+- (CGAffineTransform) matrix;
 - (CGFloat) pointSize;
+- (unsigned int) unitsPerEm;
+
+- (CFStringRef) copyName;
 - (CGFloat) fontSize;
 
 - (CGRect) boundingRect;
@@ -50,6 +63,8 @@ enum { CGNullGlyph = 0x0 };
 - (CGFloat) capHeight;
 
 - (NSUInteger) numberOfGlyphs;
+
+- (NSData *) copyTableForTag: (uint32_t) tag;
 
 - (CGPoint) positionOfGlyph: (CGGlyph) current
             precededByGlyph: (CGGlyph) previous

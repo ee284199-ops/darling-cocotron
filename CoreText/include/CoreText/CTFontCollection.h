@@ -1,8 +1,16 @@
 #import <CoreFoundation/CoreFoundation.h>
 #import <CoreText/CoreTextExport.h>
+#import <CoreText/CTFontDescriptor.h>
 
 typedef struct __CTFontCollection* CTFontCollectionRef;
 
+typedef CFComparisonResult (*CTFontCollectionSortDescriptorsCallback)(CTFontDescriptorRef first, CTFontDescriptorRef second, void *refCon);
+
+CORETEXT_EXPORT const CFStringRef kCTFontCollectionRemoveDuplicatesOption;
+
 CORETEXT_EXPORT CTFontCollectionRef CTFontCollectionCreateFromAvailableFonts(CFDictionaryRef options);
 CORETEXT_EXPORT CFArrayRef CTFontCollectionCreateMatchingFontDescriptors(CTFontCollectionRef collection);
+CORETEXT_EXPORT CFArrayRef CTFontCollectionCreateMatchingFontDescriptorsSortedWithCallback(CTFontCollectionRef collection, CTFontCollectionSortDescriptorsCallback sortCallback, void *refCon);
 CORETEXT_EXPORT CTFontCollectionRef CTFontCollectionCreateWithFontDescriptors(CFArrayRef queryDescriptors, CFDictionaryRef options);
+CORETEXT_EXPORT CTFontCollectionRef CTFontCollectionCreateCopyWithFontDescriptors(CTFontCollectionRef original, CFArrayRef queryDescriptors, CFDictionaryRef options);
+CORETEXT_EXPORT CFTypeID CTFontCollectionGetTypeID(void);
