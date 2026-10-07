@@ -32,12 +32,49 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 @implementation NSEvent
 
+// Bit 0 is the left mouse button, bit 1 the right one, bit n any other button
+// with number n.
+static NSUInteger _pressedMouseButtonsMask = 0;
+
++ (void) _updatePressedMouseButtonsForType: (NSEventType) type
+                              buttonNumber: (NSInteger) buttonNumber
+{
+    switch (type) {
+    case NSLeftMouseDown:
+        _pressedMouseButtonsMask |= 1UL << 0;
+        break;
+    case NSLeftMouseUp:
+        _pressedMouseButtonsMask &= ~(1UL << 0);
+        break;
+    case NSRightMouseDown:
+        _pressedMouseButtonsMask |= 1UL << 1;
+        break;
+    case NSRightMouseUp:
+        _pressedMouseButtonsMask &= ~(1UL << 1);
+        break;
+    case NSOtherMouseDown:
+        if (buttonNumber >= 0)
+            _pressedMouseButtonsMask |= 1UL << buttonNumber;
+        break;
+    case NSOtherMouseUp:
+        if (buttonNumber >= 0)
+            _pressedMouseButtonsMask &= ~(1UL << buttonNumber);
+        break;
+    default:
+        break;
+    }
+}
+
 + (NSPoint) mouseLocation {
     return [[NSDisplay currentDisplay] mouseLocation];
 }
 
 + (NSEventModifierFlags) modifierFlags {
     return [[NSDisplay currentDisplay] currentModifierFlags];
+}
+
++ (NSUInteger) pressedMouseButtons {
+    return _pressedMouseButtonsMask;
 }
 
 - (instancetype) initWithType: (NSEventType) type
@@ -50,6 +87,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     _locationInWindow = location;
     _modifierFlags = modifierFlags;
     _windowNumber = [window windowNumber];
+
+    [NSEvent _updatePressedMouseButtonsForType: type buttonNumber: -1];
+
     return self;
 }
 
@@ -226,6 +266,58 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 - (CGFloat) deltaZ {
     return 0;
+}
+
+- (CGFloat) scrollingDeltaX {
+    return [self deltaX];
+}
+
+- (CGFloat) scrollingDeltaY {
+    return [self deltaY];
+}
+
+- (BOOL) hasPreciseScrollingDeltas {
+    return NO;
+}
+
+- (NSEventPhase) phase {
+    return NSEventPhaseNone;
+}
+
+- (NSEventPhase) momentumPhase {
+    return NSEventPhaseNone;
+}
+
+- (BOOL) isDirectionInvertedFromDevice {
+    return NO;
+}
+
+- (CGFloat) pressure {
+    switch (_type) {
+    case NSLeftMouseDown:
+    case NSRightMouseDown:
+    case NSOtherMouseDown:
+    case NSLeftMouseDragged:
+    case NSRightMouseDragged:
+    case NSOtherMouseDragged:
+        return 1.0;
+    default:
+        return 0.0;
+    }
+}
+
+- (NSInteger) stage {
+    switch (_type) {
+    case NSLeftMouseDown:
+    case NSRightMouseDown:
+    case NSOtherMouseDown:
+    case NSLeftMouseDragged:
+    case NSRightMouseDragged:
+    case NSOtherMouseDragged:
+        return 1;
+    default:
+        return 0;
+    }
 }
 
 - (NSString *) characters {

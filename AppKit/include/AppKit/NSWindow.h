@@ -23,6 +23,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/AppKitExport.h>
 #import <AppKit/NSResponder.h>
 #import <AppKit/NSView.h>
+#import <AppKit/NSWindowTabGroup.h>
 #import <ApplicationServices/ApplicationServices.h>
 #import <CoreGraphics/CGSubWindow.h>
 #import <AppKit/NSUserInterfaceItemIdentification.h>
@@ -32,7 +33,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
         NSText, NSTextView, CGWindow, NSPasteboard, NSSheetContext,
         NSUndoManager, NSButton, NSButtonCell, NSDrawer, NSDockTile, NSToolbar,
         NSWindowAnimationContext, NSTrackingArea, NSThemeFrame,
-        NSWindowController, NSMenuItem, CARenderer;
+        NSWindowController, NSMenuItem, CARenderer, NSAppearance;
 @protocol NSWindowDelegate;
 
 // Old NSWindowStyleMask constants
@@ -110,6 +111,29 @@ typedef NS_OPTIONS(NSUInteger, NSWindowCollectionBehavior) {
     NSWindowCollectionBehaviorStationary = 0x10,
     NSWindowCollectionBehaviorParticipatesInCycle = 0x20,
     NSWindowCollectionBehaviorIgnoresCycle = 0x40
+};
+
+typedef NS_OPTIONS(NSUInteger, NSWindowOcclusionState) {
+    NSWindowOcclusionStateVisible = 1UL << 1
+};
+
+// NSWindowTabbingIdentifier is declared in NSWindowTabGroup.h
+
+typedef NS_ENUM(NSInteger, NSWindowTabbingMode) {
+    NSWindowTabbingModeAutomatic = 0,
+    NSWindowTabbingModePreferred = 1,
+    NSWindowTabbingModeDisallowed = 2
+};
+
+typedef NS_ENUM(NSInteger, NSWindowUserTabbingPreference) {
+    NSWindowUserTabbingPreferenceManual = 0,
+    NSWindowUserTabbingPreferenceAlways = 1,
+    NSWindowUserTabbingPreferenceInFullScreen = 2
+};
+
+typedef NS_ENUM(NSInteger, NSWindowTitleVisibility) {
+    NSWindowTitleVisible = 0,
+    NSWindowTitleHidden = 1
 };
 
 typedef NS_ENUM(NSUInteger, NSWindowSharingType) {
@@ -245,6 +269,14 @@ APPKIT_EXPORT const NSNotificationName NSWindowDidExposeNotification;
     NSPoint _mouseDownLocationInWindow;
 
     NSUserInterfaceItemIdentifier _identifier;
+
+    NSWindowCollectionBehavior _collectionBehavior;
+    NSWindowTabbingMode _tabbingMode;
+    NSWindowTabbingIdentifier _tabbingIdentifier;
+    NSWindowTabGroup *_tabGroup;
+    NSWindowTitleVisibility _titleVisibility;
+    BOOL _titlebarAppearsTransparent;
+    NSAppearance *_appearance;
 
     BOOL _isAccessible;
 }
@@ -456,8 +488,47 @@ APPKIT_EXPORT const NSNotificationName NSWindowDidExposeNotification;
 - (BOOL) canBecomeVisibleWithoutLogin;
 - (NSWindowCollectionBehavior) collectionBehavior;
 
+- (CGFloat) backingScaleFactor;
+
 - (NSPoint) convertBaseToScreen: (NSPoint) point;
 - (NSPoint) convertScreenToBase: (NSPoint) point;
+- (NSPoint) convertPointToScreen: (NSPoint) point;
+- (NSPoint) convertPointFromScreen: (NSPoint) point;
+- (NSRect) convertRectToScreen: (NSRect) rect;
+- (NSRect) convertRectFromScreen: (NSRect) rect;
+- (NSPoint) convertPointToBacking: (NSPoint) point;
+- (NSPoint) convertPointFromBacking: (NSPoint) point;
+- (NSRect) convertRectToBacking: (NSRect) rect;
+- (NSRect) convertRectFromBacking: (NSRect) rect;
+- (NSRect) backingAlignedRect: (NSRect) rect options: (NSAlignmentOptions) options;
+
+- (NSWindowOcclusionState) occlusionState;
+
+- (NSWindowTabbingMode) tabbingMode;
+- (void) setTabbingMode: (NSWindowTabbingMode) tabbingMode;
+- (NSWindowTabbingIdentifier) tabbingIdentifier;
+- (void) setTabbingIdentifier: (NSWindowTabbingIdentifier) tabbingIdentifier;
+- (NSArray<NSWindow *> *) tabbedWindows;
+- (NSWindowTabGroup *) tabGroup;
+- (void) addTabbedWindow: (NSWindow *) window ordered: (NSWindowOrderingMode) ordered;
+
+- (void) selectNextTab: (id) sender;
+- (void) selectPreviousTab: (id) sender;
+- (void) moveTabToNewWindow: (id) sender;
+- (void) mergeAllWindows: (id) sender;
+- (void) toggleTabBar: (id) sender;
+- (void) toggleTabOverview: (id) sender;
+
++ (NSWindowUserTabbingPreference) userTabbingPreference;
+
+- (NSWindowTitleVisibility) titleVisibility;
+- (void) setTitleVisibility: (NSWindowTitleVisibility) titleVisibility;
+- (BOOL) titlebarAppearsTransparent;
+- (void) setTitlebarAppearsTransparent: (BOOL) titlebarAppearsTransparent;
+
+- (NSAppearance *) appearance;
+- (void) setAppearance: (NSAppearance *) appearance;
+- (NSAppearance *) effectiveAppearance;
 
 - (NSRect) frameRectForContentRect: (NSRect) rect;
 - (NSRect) contentRectForFrameRect: (NSRect) rect;

@@ -257,6 +257,10 @@ static NSMutableArray *_cursorStack = nil;
     return shared;
 }
 
++ (NSCursor *) IBeamCursorForVerticalLayout {
+    return [self IBeamCursor];
+}
+
 + (NSCursor *) openHandCursor {
     static NSCursor *shared = nil;
 

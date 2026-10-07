@@ -39,6 +39,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 + (NSCursor *) crosshairCursor;
 + (NSCursor *) disappearingItemCursor;
 + (NSCursor *) IBeamCursor;
++ (NSCursor *) IBeamCursorForVerticalLayout;
 + (NSCursor *) openHandCursor;
 + (NSCursor *) pointingHandCursor;
 + (NSCursor *) resizeDownCursor;

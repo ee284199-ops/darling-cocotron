@@ -20,6 +20,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 #import <AppKit/NSEvent.h>
 
+@interface NSEvent (NSEvent_mouse_private)
++ (void) _updatePressedMouseButtonsForType: (NSEventType) type
+                              buttonNumber: (NSInteger) buttonNumber;
+@end
+
 @interface NSEvent_mouse : NSEvent {
     NSInteger _clickCount;
     CGFloat _deltaX;

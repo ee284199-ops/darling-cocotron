@@ -20,10 +20,52 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <Foundation/NSRange.h>
 #import <Foundation/NSObject.h>
 #import <AppKit/AppKitExport.h>
+#import <AppKit/NSEvent.h>
+#import <AppKit/NSTextInputClient.h>
+
+#import <Foundation/NSArray.h>
+
+@class NSString;
 
 APPKIT_EXPORT NSString *const NSTextInputContextKeyboardSelectionDidChangeNotification;
 
-@interface NSTextInputContext : NSObject
+@protocol NSTextInput;
+
+@interface NSTextInputContext : NSObject {
+@private
+    id<NSTextInputClient> _client;
+    BOOL _acceptsGlyphInfo;
+    NSArray<NSString *> *_allowedInputSourceLocales;
+}
+
+- initWithClient: (id<NSTextInputClient>) client;
+
+- (id<NSTextInputClient>) client;
+
++ (NSTextInputContext *) currentInputContext;
+
+- (void) activate;
+- (void) deactivate;
+
+- (BOOL) handleEvent: (NSEvent *) event;
+
+- (void) discardMarkedText;
+- (void) invalidateCharacterCoordinates;
+
+- (NSArray<NSString *> *) keyboardInputSources;
+
+- (NSString *) selectedKeyboardInputSource;
+- (void) setSelectedKeyboardInputSource: (NSString *) inputSourceIdentifier;
+
++ (NSString *) localizedNameForInputSource:
+        (NSString *) inputSourceIdentifier;
+
+- (BOOL) acceptsGlyphInfo;
+- (void) setAcceptsGlyphInfo: (BOOL) acceptsGlyphInfo;
+
+- (NSArray<NSString *> *) allowedInputSourceLocales;
+- (void) setAllowedInputSourceLocales:
+        (NSArray<NSString *> *) allowedInputSourceLocales;
 
 @end
 

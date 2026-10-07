@@ -206,6 +206,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSViewController.h>
 #import <AppKit/NSVisualEffectView.h>
 #import <AppKit/NSWindow.h>
+#import <AppKit/NSWindowTabGroup.h>
 #import <AppKit/NSWindowController.h>
 #import <AppKit/NSWindowRestoration.h>
 #import <AppKit/NSWorkspace.h>

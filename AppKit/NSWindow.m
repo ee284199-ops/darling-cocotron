@@ -19,6 +19,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 #import <AppKit/NSApplication.h>
+#import <AppKit/NSAppearance.h>
 #import <AppKit/NSColor.h>
 #import <AppKit/NSCursor.h>
 #import <AppKit/NSDisplay.h>
@@ -43,6 +44,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSWindow-Private.h>
 #import <AppKit/NSWindow.h>
 #import <AppKit/NSWindowAnimationContext.h>
+#import <AppKit/NSWindowTabGroup.h>
 #import <ApplicationServices/ApplicationServices.h>
 #import <CoreGraphics/CGWindow.h>
 
@@ -340,6 +342,10 @@ static BOOL _allowsAutomaticWindowTabbing;
     _resizeIncrements = NSMakeSize(1, 1);
     _contentResizeIncrements = NSMakeSize(1, 1);
 
+    _collectionBehavior = NSWindowCollectionBehaviorDefault;
+    _tabbingMode = NSWindowTabbingModeAutomatic;
+    _titleVisibility = NSWindowTitleVisible;
+
     _threadToContext = [[NSMutableDictionary alloc] init];
 
     NSRect backgroundFrame = {NSZeroPoint, _frame.size};
@@ -420,6 +426,10 @@ static BOOL _allowsAutomaticWindowTabbing;
     [_threadToContext release];
     [_undoManager release];
     [_identifier release];
+    [_tabbingIdentifier release];
+    [_tabGroup _detachWindow];
+    [_tabGroup release];
+    [_appearance release];
     [super dealloc];
 }
 
@@ -1261,7 +1271,7 @@ static BOOL _allowsAutomaticWindowTabbing;
 }
 
 - (void) setCollectionBehavior: (NSWindowCollectionBehavior) behavior {
-    NSUnimplementedMethod();
+    _collectionBehavior = behavior;
 }
 
 - (void) setLevel: (NSInteger) value {
@@ -1546,8 +1556,16 @@ static BOOL _allowsAutomaticWindowTabbing;
 }
 
 - (NSWindowCollectionBehavior) collectionBehavior {
-    NSUnimplementedMethod();
-    return 0;
+    return _collectionBehavior;
+}
+
+- (CGFloat) backingScaleFactor {
+    NSScreen *screen = [self screen];
+
+    if (screen != nil)
+        return [screen backingScaleFactor];
+
+    return 1.0;
 }
 
 - (NSPoint) convertBaseToScreen: (NSPoint) point {
@@ -1566,6 +1584,152 @@ static BOOL _allowsAutomaticWindowTabbing;
     point.y -= frame.origin.y;
 
     return point;
+}
+
+- (NSPoint) convertPointToScreen: (NSPoint) point {
+    return [self convertBaseToScreen: point];
+}
+
+- (NSPoint) convertPointFromScreen: (NSPoint) point {
+    return [self convertScreenToBase: point];
+}
+
+- (NSRect) convertRectToScreen: (NSRect) rect {
+    rect.origin = [self convertBaseToScreen: rect.origin];
+
+    return rect;
+}
+
+- (NSRect) convertRectFromScreen: (NSRect) rect {
+    rect.origin = [self convertScreenToBase: rect.origin];
+
+    return rect;
+}
+
+- (NSPoint) convertPointToBacking: (NSPoint) point {
+    return point;
+}
+
+- (NSPoint) convertPointFromBacking: (NSPoint) point {
+    return point;
+}
+
+- (NSRect) convertRectToBacking: (NSRect) rect {
+    return rect;
+}
+
+- (NSRect) convertRectFromBacking: (NSRect) rect {
+    return rect;
+}
+
+- (NSRect) backingAlignedRect: (NSRect) rect options: (NSAlignmentOptions) options {
+    return NSIntegralRect(rect);
+}
+
+- (NSWindowOcclusionState) occlusionState {
+    if ([self isVisible] && ![self isMiniaturized])
+        return NSWindowOcclusionStateVisible;
+
+    return 0;
+}
+
+- (NSWindowTabbingMode) tabbingMode {
+    return _tabbingMode;
+}
+
+- (void) setTabbingMode: (NSWindowTabbingMode) tabbingMode {
+    _tabbingMode = tabbingMode;
+}
+
+- (NSWindowTabbingIdentifier) tabbingIdentifier {
+    if (_tabbingIdentifier == nil)
+        return [NSString stringWithFormat: @"%@-%lu",
+                                           NSStringFromClass([self class]),
+                                           (unsigned long) [self styleMask]];
+
+    return _tabbingIdentifier;
+}
+
+- (void) setTabbingIdentifier: (NSWindowTabbingIdentifier) tabbingIdentifier {
+    tabbingIdentifier = [tabbingIdentifier copy];
+    [_tabbingIdentifier release];
+    _tabbingIdentifier = tabbingIdentifier;
+}
+
+- (NSArray<NSWindow *> *) tabbedWindows {
+    return nil;
+}
+
+- (NSWindowTabGroup *) tabGroup {
+    if (_tabGroup == nil)
+        _tabGroup = [[NSWindowTabGroup alloc] initWithWindow: self];
+
+    return _tabGroup;
+}
+
+- (void) addTabbedWindow: (NSWindow *) window ordered: (NSWindowOrderingMode) ordered {
+    [window orderWindow: ordered relativeTo: [self windowNumber]];
+}
+
+- (void) selectNextTab: (id) sender {
+    // There is no tab UI, every window is alone in its own group.
+}
+
+- (void) selectPreviousTab: (id) sender {
+    // There is no tab UI, every window is alone in its own group.
+}
+
+- (void) moveTabToNewWindow: (id) sender {
+    // There is no tab UI, every window is alone in its own group.
+}
+
+- (void) mergeAllWindows: (id) sender {
+    // There is no tab UI, every window is alone in its own group.
+}
+
+- (void) toggleTabBar: (id) sender {
+    // There is no tab UI, every window is alone in its own group.
+}
+
+- (void) toggleTabOverview: (id) sender {
+    // There is no tab UI, every window is alone in its own group.
+}
+
++ (NSWindowUserTabbingPreference) userTabbingPreference {
+    return NSWindowUserTabbingPreferenceManual;
+}
+
+- (NSWindowTitleVisibility) titleVisibility {
+    return _titleVisibility;
+}
+
+- (void) setTitleVisibility: (NSWindowTitleVisibility) titleVisibility {
+    _titleVisibility = titleVisibility;
+}
+
+- (BOOL) titlebarAppearsTransparent {
+    return _titlebarAppearsTransparent;
+}
+
+- (void) setTitlebarAppearsTransparent: (BOOL) titlebarAppearsTransparent {
+    _titlebarAppearsTransparent = titlebarAppearsTransparent;
+}
+
+- (NSAppearance *) appearance {
+    return _appearance;
+}
+
+- (void) setAppearance: (NSAppearance *) appearance {
+    [appearance retain];
+    [_appearance release];
+    _appearance = appearance;
+}
+
+- (NSAppearance *) effectiveAppearance {
+    if (_appearance != nil)
+        return _appearance;
+
+    return [NSApp effectiveAppearance];
 }
 
 - (NSRect) frameRectForContentRect: (NSRect) contentRect {

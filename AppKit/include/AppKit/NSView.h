@@ -139,6 +139,9 @@ APPKIT_EXPORT const NSViewFullScreenModeOptionKey NSFullScreenModeApplicationPre
     NSLayoutPriority _verticalContentCompressionResistancePriority;
 
     NSAppearance *_appearance;
+    NSTextInputContext *_inputContext;
+    BOOL _wantsBestResolutionOpenGLSurface;
+    BOOL _wantsExtendedDynamicRangeOpenGLSurface;
     BOOL _clipsToBounds;
 }
 
@@ -293,6 +296,10 @@ APPKIT_EXPORT const NSViewFullScreenModeOptionKey NSFullScreenModeApplicationPre
 
 - (NSTextInputContext *) inputContext;
 
+- (NSAppearance *) appearance;
+- (void) setAppearance: (NSAppearance *) appearance;
+- (NSAppearance *) effectiveAppearance;
+
 - (void) registerForDraggedTypes: (NSArray *) types;
 - (void) unregisterDraggedTypes;
 - (NSArray *) registeredDraggedTypes;
@@ -336,6 +343,10 @@ APPKIT_EXPORT const NSViewFullScreenModeOptionKey NSFullScreenModeApplicationPre
 - (void) setLayer: (CALayer *) newLayer;
 - (BOOL) wantsLayer;
 - (void) setWantsLayer: (BOOL) wantsLayer;
+- (BOOL) wantsBestResolutionOpenGLSurface;
+- (void) setWantsBestResolutionOpenGLSurface: (BOOL) wants;
+- (BOOL) wantsExtendedDynamicRangeOpenGLSurface;
+- (void) setWantsExtendedDynamicRangeOpenGLSurface: (BOOL) wants;
 - (NSViewLayerContentsPlacement) layerContentsPlacement;
 - (void) setLayerContentsPlacement: (NSViewLayerContentsPlacement) newPlacement;
 - (NSViewLayerContentsRedrawPolicy) layerContentsRedrawPolicy;
@@ -450,6 +461,14 @@ APPKIT_EXPORT const NSViewFullScreenModeOptionKey NSFullScreenModeApplicationPre
 - (NSSize) convertSizeToBase: (NSSize) aSize;
 - (NSRect) convertRectFromBase: (NSRect) aRect;
 - (NSRect) convertRectToBase: (NSRect) aRect;
+
+- (NSPoint) convertPointToBacking: (NSPoint) point;
+- (NSPoint) convertPointFromBacking: (NSPoint) point;
+- (NSSize) convertSizeToBacking: (NSSize) size;
+- (NSSize) convertSizeFromBacking: (NSSize) size;
+- (NSRect) convertRectToBacking: (NSRect) rect;
+- (NSRect) convertRectFromBacking: (NSRect) rect;
+- (NSRect) backingAlignedRect: (NSRect) rect options: (NSAlignmentOptions) options;
 
 - (void) showDefinitionForAttributedString: (NSAttributedString *) string
                                    atPoint: (NSPoint) origin;

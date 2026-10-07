@@ -18,7 +18,11 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 #import <CoreGraphics/CGDirectDisplay.h>
+#import <AppKit/AppKitExport.h>
+#import <AppKit/NSGraphics.h>
 #import <Foundation/Foundation.h>
+
+@class NSColorSpace;
 
 extern NSNotificationName const NSScreenColorSpaceDidChangeNotification;
 
@@ -46,6 +50,22 @@ typedef NSString *NSDeviceDescriptionKey;
 - (NSRect) visibleFrame;
 
 - (CGFloat) userSpaceScaleFactor;
+
+- (CGFloat) backingScaleFactor;
+
+- (NSString *) localizedName;
+
+- (NSRect) convertRectToBacking: (NSRect) rect;
+- (NSRect) convertRectFromBacking: (NSRect) rect;
+- (NSRect) backingAlignedRect: (NSRect) rect options: (NSAlignmentOptions) options;
+
+- (CGFloat) maximumExtendedDynamicRangeColorComponentValue;
+- (CGFloat) maximumPotentialExtendedDynamicRangeColorComponentValue;
+- (CGFloat) maximumReferenceExtendedDynamicRangeColorComponentValue;
+
+- (NSInteger) maximumFramesPerSecond;
+
+- (NSColorSpace *) colorSpace;
 
 @end
 

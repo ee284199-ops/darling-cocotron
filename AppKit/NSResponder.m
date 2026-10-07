@@ -25,6 +25,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSKeyboardBindingManager.h>
 #import <AppKit/NSRaise.h>
 #import <AppKit/NSResponder.h>
+#import <AppKit/NSTextInputClient.h>
 #import <Foundation/NSKeyedArchiver.h>
 #import <objc/runtime.h>
 
@@ -132,7 +133,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
                     buffer[j] = check;
                 }
                 string = [NSString stringWithCharacters: buffer length: length];
-                [self insertText: string];
+
+                if ([self respondsToSelector:
+                                @selector(insertText:replacementRange:)])
+                    [(id) self insertText: string
+                          replacementRange: NSMakeRange(NSNotFound, 0)];
+                else
+                    [self insertText: string];
             }
         }
     }

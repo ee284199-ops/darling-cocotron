@@ -40,19 +40,81 @@ NSString *const NSAppearanceNameAccessibilityHighContrastVibrantDark =
 NSString *const NSAppearanceNameControlStrip =
         @"NSAppearanceNameControlStrip"; // Undocumented
 
+static NSAppearance *_currentAppearance = nil;
+
 @implementation NSAppearance
 
+- (instancetype) initWithName: (NSAppearanceName) name {
+    self = [super init];
+
+    _name = [name copy];
+
+    return self;
+}
+
 + (NSAppearance *) appearanceNamed: (NSAppearanceName) name {
-    printf("STUB %s\n", __PRETTY_FUNCTION__);
-    return [NSAppearance alloc];
+    if (name == nil)
+        return nil;
+
+    return [[[self alloc] initWithName: name] autorelease];
+}
+
++ (NSAppearance *) currentAppearance {
+    if (_currentAppearance == nil)
+        _currentAppearance =
+                [[self appearanceNamed: NSAppearanceNameAqua] retain];
+
+    return _currentAppearance;
+}
+
++ (void) setCurrentAppearance: (NSAppearance *) appearance {
+    [appearance retain];
+    [_currentAppearance release];
+    _currentAppearance = appearance;
+}
+
++ (NSAppearance *) currentDrawingAppearance {
+    return [self currentAppearance];
+}
+
+- (NSAppearanceName) name {
+    return _name;
+}
+
+- (NSAppearanceName) bestMatchFromAppearancesWithNames:
+        (NSArray<NSAppearanceName> *) names
+{
+    if ([names containsObject: _name])
+        return _name;
+
+    if ([_name rangeOfString: @"Dark"].location != NSNotFound &&
+        [names containsObject: NSAppearanceNameDarkAqua])
+        return NSAppearanceNameDarkAqua;
+
+    if ([names containsObject: NSAppearanceNameAqua])
+        return NSAppearanceNameAqua;
+
+    return nil;
+}
+
+- (BOOL) allowsVibrancy {
+    return NO;
+}
+
+- (void) dealloc {
+    [_name release];
+    [super dealloc];
 }
 
 - (void) encodeWithCoder: (NSCoder *) aCoder {
-    printf("STUB %s\n", __PRETTY_FUNCTION__);
+    if ([aCoder allowsKeyedCoding])
+        [aCoder encodeObject: _name forKey: @"NSAppearanceName"];
 }
 
 - (id) initWithCoder: (NSCoder *) aDecoder {
-    printf("STUB %s\n", __PRETTY_FUNCTION__);
+    if ([aDecoder allowsKeyedCoding])
+        _name = [[aDecoder decodeObjectForKey: @"NSAppearanceName"] copy];
+
     return self;
 }
 

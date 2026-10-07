@@ -36,6 +36,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSPrintOperation.h>
 #import <AppKit/NSRaise.h>
 #import <AppKit/NSScrollView.h>
+#import <AppKit/NSTextInput.h>
 #import <AppKit/NSTrackingArea.h>
 #import <AppKit/NSView.h>
 #import <AppKit/NSViewBackingLayer.h>
@@ -478,6 +479,8 @@ typedef struct __VFlags {
     [_layerContext invalidate];
     [_layerContext release];
 
+    [_inputContext release];
+    [_appearance release];
     [_identifier release];
 
     [super dealloc];
@@ -1530,8 +1533,57 @@ static inline void buildTransformsIfNeeded(NSView *self) {
 }
 
 - (NSTextInputContext *) inputContext {
-    NSUnimplementedMethod();
-    return nil;
+    if (_inputContext == nil) {
+        // Classes built at run time may not register the protocol, so also
+        // check for an NSTextInputClient method directly.
+        if ([self conformsToProtocol: @protocol(NSTextInputClient)] ||
+            [self respondsToSelector:
+                            @selector(insertText:replacementRange:)])
+            _inputContext = [[NSTextInputContext alloc] initWithClient: (id) self];
+    }
+
+    return _inputContext;
+}
+
+- (NSAppearance *) effectiveAppearance {
+    if (_appearance != nil)
+        return _appearance;
+
+    if (_superview != nil)
+        return [_superview effectiveAppearance];
+
+    if (_window != nil)
+        return [_window effectiveAppearance];
+
+    return [NSApp effectiveAppearance];
+}
+
+- (NSPoint) convertPointToBacking: (NSPoint) point {
+    return point;
+}
+
+- (NSPoint) convertPointFromBacking: (NSPoint) point {
+    return point;
+}
+
+- (NSSize) convertSizeToBacking: (NSSize) size {
+    return size;
+}
+
+- (NSSize) convertSizeFromBacking: (NSSize) size {
+    return size;
+}
+
+- (NSRect) convertRectToBacking: (NSRect) rect {
+    return rect;
+}
+
+- (NSRect) convertRectFromBacking: (NSRect) rect {
+    return rect;
+}
+
+- (NSRect) backingAlignedRect: (NSRect) rect options: (NSAlignmentOptions) options {
+    return NSIntegralRect(rect);
 }
 
 - (void) registerForDraggedTypes: (NSArray *) types {
@@ -1819,6 +1871,24 @@ static inline void buildTransformsIfNeeded(NSView *self) {
 
 - (BOOL) wantsLayer {
     return _wantsLayer;
+}
+
+- (BOOL) wantsBestResolutionOpenGLSurface {
+    // There is no HiDPI, the flag is stored but has no effect.
+    return _wantsBestResolutionOpenGLSurface;
+}
+
+- (void) setWantsBestResolutionOpenGLSurface: (BOOL) value {
+    _wantsBestResolutionOpenGLSurface = value;
+}
+
+- (BOOL) wantsExtendedDynamicRangeOpenGLSurface {
+    // There is no HDR support, the flag is stored but has no effect.
+    return _wantsExtendedDynamicRangeOpenGLSurface;
+}
+
+- (void) setWantsExtendedDynamicRangeOpenGLSurface: (BOOL) value {
+    _wantsExtendedDynamicRangeOpenGLSurface = value;
 }
 
 - (CALayer *) layer {

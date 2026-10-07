@@ -19,7 +19,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 // Original - Christopher Lloyd <cjwl@objc.net>
 #import <AppKit/NSApplication.h>
+#import <AppKit/NSColorSpace.h>
 #import <AppKit/NSDisplay.h>
+#import <AppKit/NSGraphics.h>
 #import <AppKit/NSScreen.h>
 #import <AppKit/NSWindow.h>
 
@@ -82,6 +84,47 @@ NSNotificationName const NSScreenColorSpaceDidChangeNotification = @"NSScreenCol
     return 1.0;
 }
 
+- (CGFloat) backingScaleFactor {
+    return 1.0;
+}
+
+- (NSString *) localizedName {
+    return [NSString stringWithFormat: @"Display %u",
+                                       (unsigned) _directDisplayID];
+}
+
+- (NSRect) convertRectToBacking: (NSRect) rect {
+    return rect;
+}
+
+- (NSRect) convertRectFromBacking: (NSRect) rect {
+    return rect;
+}
+
+- (NSRect) backingAlignedRect: (NSRect) rect options: (NSAlignmentOptions) options {
+    return NSIntegralRect(rect);
+}
+
+- (CGFloat) maximumExtendedDynamicRangeColorComponentValue {
+    return 1.0;
+}
+
+- (CGFloat) maximumPotentialExtendedDynamicRangeColorComponentValue {
+    return 1.0;
+}
+
+- (CGFloat) maximumReferenceExtendedDynamicRangeColorComponentValue {
+    return 0.0;
+}
+
+- (NSInteger) maximumFramesPerSecond {
+    return 60;
+}
+
+- (NSColorSpace *) colorSpace {
+    return [NSColorSpace sRGBColorSpace];
+}
+
 - (id) description {
     return [NSString stringWithFormat: @"< %@ - frame %@, visible %@ >",
                                        [super description],
@@ -90,7 +133,14 @@ NSNotificationName const NSScreenColorSpaceDidChangeNotification = @"NSScreenCol
 }
 
 - (NSDictionary<NSDeviceDescriptionKey, id> *) deviceDescription {
-    return @{};
+    return @{
+        @"NSScreenNumber" : [NSNumber numberWithUnsignedInt: _directDisplayID],
+        NSDeviceSize : [NSValue valueWithSize: _frame.size],
+        NSDeviceResolution : [NSValue valueWithSize: NSMakeSize(72, 72)],
+        NSDeviceIsScreen : @"YES",
+        NSDeviceColorSpaceName : NSCalibratedRGBColorSpace,
+        NSDeviceBitsPerSample : [NSNumber numberWithInt: 8]
+    };
 }
 
 @end

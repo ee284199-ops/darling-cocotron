@@ -1573,6 +1573,23 @@ NSApplication *NSApp = nil;
     return _presentationOptions;
 }
 
+- (NSAppearance *) appearance {
+    return _appearance;
+}
+
+- (void) setAppearance: (NSAppearance *) appearance {
+    [appearance retain];
+    [_appearance release];
+    _appearance = appearance;
+}
+
+- (NSAppearance *) effectiveAppearance {
+    if (_appearance != nil)
+        return _appearance;
+
+    return [NSAppearance appearanceNamed: NSAppearanceNameAqua];
+}
+
 - (void) setPresentationOptions: (NSApplicationPresentationOptions) options {
     if (options & NSApplicationPresentationAutoHideDock &&
         options & NSApplicationPresentationHideDock) {

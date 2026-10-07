@@ -84,6 +84,9 @@ typedef NS_ENUM(NSUInteger, NSEventType) {
     NSEventTypeOtherMouseUp = 26,
     NSOtherMouseUp = 26,
 
+    NSEventTypeOtherMouseDragged = 27,
+    NSOtherMouseDragged = 27,
+
     NSAppKitSystem = 100,
 
     NSPlatformSpecific = 29,
@@ -123,6 +126,16 @@ typedef NS_OPTIONS(NSUInteger, NSEventModifierFlags) {
     NSHelpKeyMask = 1 << 22,
     NSFunctionKeyMask = 1 << 23,
     NSDeviceIndependentModifierFlagsMask = 0xffff0000UL
+};
+
+typedef NS_OPTIONS(NSUInteger, NSEventPhase) {
+    NSEventPhaseNone = 0,
+    NSEventPhaseBegan = 1 << 0,
+    NSEventPhaseStationary = 1 << 1,
+    NSEventPhaseChanged = 1 << 2,
+    NSEventPhaseEnded = 1 << 3,
+    NSEventPhaseCancelled = 1 << 4,
+    NSEventPhaseMayBegin = 1 << 5
 };
 
 enum : unsigned int {
@@ -212,6 +225,7 @@ enum { NSApplicationActivated = 0, NSApplicationDeactivated = 1 };
 
 + (NSPoint) mouseLocation;
 + (NSEventModifierFlags) modifierFlags;
++ (NSUInteger) pressedMouseButtons;
 
 - (instancetype) initWithType: (NSEventType) type
                      location: (NSPoint) location
@@ -286,6 +300,14 @@ enum { NSApplicationActivated = 0, NSApplicationDeactivated = 1 };
 - (CGFloat) deltaX;
 - (CGFloat) deltaY;
 - (CGFloat) deltaZ;
+- (CGFloat) scrollingDeltaX;
+- (CGFloat) scrollingDeltaY;
+- (BOOL) hasPreciseScrollingDeltas;
+- (NSEventPhase) phase;
+- (NSEventPhase) momentumPhase;
+- (BOOL) isDirectionInvertedFromDevice;
+- (CGFloat) pressure;
+- (NSInteger) stage;
 
 - (NSString *) characters;
 - (NSString *) charactersIgnoringModifiers;

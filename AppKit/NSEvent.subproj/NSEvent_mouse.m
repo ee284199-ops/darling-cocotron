@@ -148,6 +148,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 - (void) _setButtonNumber: (NSInteger) num {
     _buttonNumber = num;
+
+    // Mouse button events arrive here with their real button numbers, keep
+    // +pressedMouseButtons up to date (covers the "other" buttons).
+    [NSEvent _updatePressedMouseButtonsForType: _type buttonNumber: num];
 }
 
 @end

@@ -18,6 +18,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 #import <AppKit/AppKitExport.h>
+#import <AppKit/NSAppearance.h>
 #import <AppKit/NSGraphics.h>
 #import <AppKit/NSResponder.h>
 #import <AppKit/NSRunningApplication.h>
@@ -140,6 +141,7 @@ typedef NS_OPTIONS(NSUInteger, NSApplicationPresentationOptions) {
     NSMutableArray *_orderedWindows; // get rid of
     NSTimer *_attentionTimer;
     NSApplicationPresentationOptions _presentationOptions;
+    NSAppearance *_appearance;
 }
 
 @property(strong) NSMenu *helpMenu;
@@ -223,6 +225,10 @@ typedef NS_OPTIONS(NSUInteger, NSApplicationPresentationOptions) {
 - (NSModalResponse) runModalSession: (NSModalSession) session;
 - (void) endModalSession: (NSModalSession) session;
 - (void) stopModalWithCode: (NSModalResponse) code;
+
+- (NSAppearance *) appearance;
+- (void) setAppearance: (NSAppearance *) appearance;
+- (NSAppearance *) effectiveAppearance;
 
 - (NSModalResponse) runModalForWindow: (NSWindow *) window;
 - (void) stopModal;
