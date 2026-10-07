@@ -131,16 +131,19 @@ ONYX2D_STATIC BOOL initFunctionsForRGBColorSpace(O2Image *self,
                 }
                 break;
 
+            case kO2ImageAlphaFirst:
             case kO2ImageAlphaPremultipliedFirst:
                 switch (bitmapInfo & kO2BitmapByteOrderMask) {
                 case kO2BitmapByteOrder16Little:
                 case kO2BitmapByteOrder32Little:
                     self->_read_argb8u = O2ImageRead_BGRA8888_to_argb8u;
                     return YES;
-                }
-                break;
 
-            case kO2ImageAlphaFirst:
+                case kO2BitmapByteOrder16Big:
+                case kO2BitmapByteOrder32Big:
+                    self->_read_argb8u = O2ImageRead_ARGB8888_to_argb8u;
+                    return YES;
+                }
                 break;
 
             case kO2ImageAlphaNoneSkipLast:
@@ -293,11 +296,17 @@ ONYX2D_STATIC BOOL initFunctionsForParameters(O2Image *self,
     self->_read_argb32f = O2ImageRead_ANY_to_argb8u_to_argb32f;
 
     if ((bitmapInfo & kO2BitmapByteOrderMask) == kO2BitmapByteOrderDefault) {
+        // Like Quartz: integer pixels are stored in the order their components are named
+        // (big-endian, e.g. PremultipliedLast is R,G,B,A in memory), floats in host order.
+        if (bitmapInfo & kO2BitmapFloatComponents) {
 #ifdef __LITTLE_ENDIAN__
-        bitmapInfo |= kO2BitmapByteOrder32Little;
+            bitmapInfo |= kO2BitmapByteOrder32Little;
 #else
-        bitmapInfo |= kO2BitmapByteOrder32Big;
+            bitmapInfo |= kO2BitmapByteOrder32Big;
 #endif
+        } else {
+            bitmapInfo |= kO2BitmapByteOrder32Big;
+        }
     }
 
     switch ([colorSpace type]) {
@@ -1050,7 +1059,7 @@ O2argb8u *O2ImageRead_BGRX8888_to_argb8u(O2Image *self, int x, int y,
     return NULL;
 }
 
-O2argb8u *O2ImageRead_XRGB8888_to_argb8u(O2Image *self, int x, int y,
+O2argb8u *O2ImageRead_ARGB8888_to_argb8u(O2Image *self, int x, int y,
                                          O2argb8u *span, int length)
 {
     const uint8_t *scanline = scanlineAtY(self, y);
@@ -1065,6 +1074,31 @@ O2argb8u *O2ImageRead_XRGB8888_to_argb8u(O2Image *self, int x, int y,
         O2argb8u result;
 
         result.a = *scanline++;
+        result.r = *scanline++;
+        result.g = *scanline++;
+        result.b = *scanline++;
+        *span++ = result;
+    }
+    return NULL;
+}
+
+O2argb8u *O2ImageRead_XRGB8888_to_argb8u(O2Image *self, int x, int y,
+                                         O2argb8u *span, int length)
+{
+    const uint8_t *scanline = scanlineAtY(self, y);
+    int i;
+
+    if (scanline == NULL)
+        return NULL;
+
+    scanline += x * 4;
+
+    for (i = 0; i < length; i++) {
+        O2argb8u result;
+
+        // the first byte is unused
+        scanline++;
+        result.a = 255;
         result.r = *scanline++;
         result.g = *scanline++;
         result.b = *scanline++;

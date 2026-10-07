@@ -8,6 +8,13 @@
 
 NSString *const kCARendererColorSpace = @"kCARendererColorSpace";
 
+// what NSImage offers to turn itself into a CGImage
+@protocol CALayerImageContents
+- (CGImageRef) CGImageForProposedRect: (CGRect *) proposedRect
+                              context: (id) context
+                                hints: (NSDictionary *) hints;
+@end
+
 @implementation CARenderer
 
 - (CGRect) bounds {
@@ -220,58 +227,80 @@ static GLint interpolationFromName(NSString *name) {
         return GL_LINEAR;
 }
 
+// Draws an image in a format OpenGL can't take directly into premultiplied B,G,R,A pixels.
+static CFDataRef CACopyImageAsBGRA(CGImageRef image) {
+    size_t width = CGImageGetWidth(image);
+    size_t height = CGImageGetHeight(image);
+    CFMutableDataRef data = CFDataCreateMutable(NULL, width * height * 4);
+    CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
+    CGContextRef context;
+
+    CFDataSetLength(data, width * height * 4);
+    context = CGBitmapContextCreate(CFDataGetMutableBytePtr(data), width, height, 8,
+                                    width * 4, colorSpace,
+                                    kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Little);
+    CGColorSpaceRelease(colorSpace);
+    if (context != NULL) {
+        CGContextDrawImage(context, CGRectMake(0, 0, width, height), image);
+        CGContextRelease(context);
+    }
+    return data;
+}
+
 void CATexImage2DCGImage(CGImageRef image) {
     size_t imageWidth = CGImageGetWidth(image);
     size_t imageHeight = CGImageGetHeight(image);
+    size_t bytesPerRow = CGImageGetBytesPerRow(image);
     CGBitmapInfo bitmapInfo = CGImageGetBitmapInfo(image);
-
-    CGDataProviderRef provider = CGImageGetDataProvider(image);
-    CFDataRef data = CGDataProviderCopyData(provider);
-    const uint8_t *pixelBytes = CFDataGetBytePtr(data);
-
-    GLenum glFormat = GL_BGRA;
-    GLenum glType = GL_UNSIGNED_INT_8_8_8_8_REV;
-
     CGImageAlphaInfo alphaInfo = bitmapInfo & kCGBitmapAlphaInfoMask;
-    CGBitmapInfo byteOrder = bitmapInfo & kCGBitmapByteOrderMask;
+    BOOL littleEndian = (bitmapInfo & kCGBitmapByteOrderMask) == kCGBitmapByteOrder32Little;
+    CGColorSpaceRef colorSpace = CGImageGetColorSpace(image);
+    CFDataRef data;
+    GLenum internalFormat = GL_RGBA8;
+    GLenum glFormat;
+    GLenum glType;
 
-    switch (alphaInfo) {
-
-    case kCGImageAlphaNone:
-        break;
-
-    case kCGImageAlphaPremultipliedLast:
-        if (byteOrder == kO2BitmapByteOrder32Big) {
-            glFormat = GL_RGBA;
-            glType = GL_UNSIGNED_INT_8_8_8_8_REV;
-        }
-        break;
-
-    case kCGImageAlphaPremultipliedFirst: // ARGB
-        if (byteOrder == kCGBitmapByteOrder32Little) {
+    if (CGImageGetBitsPerComponent(image) == 8 && CGImageGetBitsPerPixel(image) == 32 &&
+        colorSpace != NULL && CGColorSpaceGetModel(colorSpace) == kCGColorSpaceModelRGB &&
+        alphaInfo != kCGImageAlphaNone && alphaInfo != kCGImageAlphaOnly &&
+        (bitmapInfo & kCGBitmapFloatComponents) == 0 && bytesPerRow % 4 == 0) {
+        // Like Quartz, 32-bit pixels with the default byte order are stored the way their
+        // components are named: PremultipliedLast is R,G,B,A in memory.
+        switch (alphaInfo) {
+        case kCGImageAlphaPremultipliedFirst:
+        case kCGImageAlphaFirst:
+        case kCGImageAlphaNoneSkipFirst:
+            // B,G,R,A (little-endian) or A,R,G,B
             glFormat = GL_BGRA;
-            glType = GL_UNSIGNED_INT_8_8_8_8_REV;
+            glType = littleEndian ? GL_UNSIGNED_INT_8_8_8_8_REV : GL_UNSIGNED_INT_8_8_8_8;
+            break;
+        default:
+            // A,B,G,R (little-endian) or R,G,B,A
+            glFormat = GL_RGBA;
+            glType = littleEndian ? GL_UNSIGNED_INT_8_8_8_8 : GL_UNSIGNED_INT_8_8_8_8_REV;
+            break;
         }
-        break;
-
-    case kCGImageAlphaLast:
-        break;
-
-    case kCGImageAlphaFirst:
-        break;
-
-    case kCGImageAlphaNoneSkipLast:
-        break;
-
-    case kCGImageAlphaNoneSkipFirst:
-        break;
-
-    case kCGImageAlphaOnly:
-        break;
+        // the skipped byte isn't alpha
+        if (alphaInfo == kCGImageAlphaNoneSkipFirst || alphaInfo == kCGImageAlphaNoneSkipLast)
+            internalFormat = GL_RGB8;
+        data = CGDataProviderCopyData(CGImageGetDataProvider(image));
+    } else {
+        data = CACopyImageAsBGRA(image);
+        bytesPerRow = imageWidth * 4;
+        glFormat = GL_BGRA;
+        glType = GL_UNSIGNED_INT_8_8_8_8_REV;
     }
 
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, imageWidth, imageHeight, 0,
-                 glFormat, glType, pixelBytes);
+    if (data == NULL)
+        return;
+
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+    glPixelStorei(GL_UNPACK_ROW_LENGTH, bytesPerRow / 4);
+    glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, imageWidth, imageHeight, 0,
+                 glFormat, glType, CFDataGetBytePtr(data));
+    glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+
+    CFRelease(data);
 }
 
 - (void) _renderLayer: (CALayer *) layer
@@ -293,9 +322,16 @@ void CATexImage2DCGImage(CGImageRef image) {
     }
 
     if (loadPixelData) {
-        CGImageRef image = (CGImageRef)layer.contents;
+        id contents = layer.contents;
+        CGImageRef image = (CGImageRef) contents;
 
-        CATexImage2DCGImage(image);
+        // layers also take NSImages
+        if ([contents respondsToSelector: @selector(CGImageForProposedRect:context:hints:)])
+            image = [(id<CALayerImageContents>) contents CGImageForProposedRect: NULL
+                                                                        context: nil
+                                                                          hints: nil];
+        if (image != NULL)
+            CATexImage2DCGImage(image);
 
         GLint minFilter = interpolationFromName(layer.minificationFilter);
         GLint magFilter = interpolationFromName(layer.magnificationFilter);

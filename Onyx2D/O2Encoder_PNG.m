@@ -114,12 +114,8 @@ void O2PNGEncoderWriteImage(O2PNGEncoderRef self, O2ImageRef image,
         bit_depth = 4;
         break;
     case kO2BitmapByteOrder32Big:
-        break;
-    case kO2BitmapByteOrderDefault:
+    case kO2BitmapByteOrderDefault: // big-endian, as in Quartz
     default:
-#ifdef __LITTLE_ENDIAN__
-        png_set_bgr(png_ptr);
-#endif
         break;
     }
 

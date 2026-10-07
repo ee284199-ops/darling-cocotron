@@ -376,24 +376,22 @@ NSBitmapImageRepPropertyKey NSImageCurrentFrame = @"NSImageCurrentFrame";
             // of an image or image source
             CFDataRef bitmapData = CGDataProviderCopyData(provider);
             const unsigned char *bytes = CFDataGetBytePtr(bitmapData);
-            int i, length = _bytesPerRow * _pixelsHigh;
+            size_t i, length = MIN((size_t) _bytesPerRow * _pixelsHigh,
+                                   (size_t) CFDataGetLength(bitmapData));
 
-            if (bitmapInfo ==
-                (kCGImageAlphaPremultipliedLast | kCGBitmapByteOrder32Big)) {
-                for (i = 0; i < length; i++)
-                    _bitmapPlanes[0][i] = bytes[i];
-            } else {
-                for (i = 0; i < length; i += 4) {
-                    unsigned char b = bytes[i + 0];
-                    unsigned char g = bytes[i + 1];
-                    unsigned char r = bytes[i + 2];
-                    unsigned char a = bytes[i + 3];
-
-                    _bitmapPlanes[0][i + 0] = r;
-                    _bitmapPlanes[0][i + 1] = g;
-                    _bitmapPlanes[0][i + 2] = b;
-                    _bitmapPlanes[0][i + 3] = a;
+            // The rep has the image's layout, with the samples in the order their names
+            // give (alpha first or last), which is the image's own order unless the image
+            // stores 32-bit pixels little-endian.
+            if ((bitmapInfo & kCGBitmapByteOrderMask) == kCGBitmapByteOrder32Little &&
+                _bitsPerPixel == 32) {
+                for (i = 0; i + 3 < length; i += 4) {
+                    _bitmapPlanes[0][i + 0] = bytes[i + 3];
+                    _bitmapPlanes[0][i + 1] = bytes[i + 2];
+                    _bitmapPlanes[0][i + 2] = bytes[i + 1];
+                    _bitmapPlanes[0][i + 3] = bytes[i + 0];
                 }
+            } else {
+                memcpy(_bitmapPlanes[0], bytes, length);
             }
             CFRelease(bitmapData);
         }
@@ -533,7 +531,33 @@ NSBitmapImageRepPropertyKey NSImageCurrentFrame = @"NSImageCurrentFrame";
 }
 
 - (void) getPixel: (NSUInteger[]) pixel atX: (NSInteger) x y: (NSInteger) y {
-    NSUnimplementedMethod();
+    NSInteger i, bitsPerSample;
+
+    NSAssert(x >= 0 && x < [self pixelsWide], @"x out of bounds");
+    NSAssert(y >= 0 && y < [self pixelsHigh], @"y out of bounds");
+
+    [self createBitmapIfNeeded];
+
+    if (_isPlanar || _samplesPerPixel == 0) {
+        NSUnimplementedMethod();
+        return;
+    }
+
+    // the samples are stored in the order they are named, one after the other
+    bitsPerSample = _bitsPerPixel / _samplesPerPixel;
+    const unsigned char *bits =
+            _bitmapPlanes[0] + _bytesPerRow * y + (x * _bitsPerPixel) / 8;
+
+    for (i = 0; i < _samplesPerPixel; i++) {
+        if (bitsPerSample == 8)
+            pixel[i] = bits[i];
+        else if (bitsPerSample == 16)
+            pixel[i] = ((const uint16_t *) bits)[i];
+        else {
+            NSUnimplementedMethod();
+            return;
+        }
+    }
 }
 
 - (void) setPixel: (NSUInteger[]) pixel atX: (NSInteger) x y: (NSInteger) y {
@@ -560,8 +584,44 @@ NSBitmapImageRepPropertyKey NSImageCurrentFrame = @"NSImageCurrentFrame";
 }
 
 - (NSColor *) colorAtX: (NSInteger) x y: (NSInteger) y {
-    NSUnimplementedMethod();
-    return nil;
+    NSUInteger pixel[5];
+    CGFloat components[5];
+    CGFloat alpha = 1;
+    NSInteger i, colorSamples = _hasAlpha ? _samplesPerPixel - 1 : _samplesPerPixel;
+    NSInteger first = (_hasAlpha && (_bitmapFormat & NSAlphaFirstBitmapFormat)) ? 1 : 0;
+    CGFloat maxValue = (1 << [self bitsPerSample]) - 1;
+
+    if (x < 0 || x >= [self pixelsWide] || y < 0 || y >= [self pixelsHigh] ||
+        _samplesPerPixel > 5 || colorSamples < 1 ||
+        (_bitmapFormat & NSFloatingPointSamplesBitmapFormat))
+        return nil;
+
+    [self getPixel: pixel atX: x y: y];
+
+    if (_hasAlpha)
+        alpha = pixel[first ? 0 : _samplesPerPixel - 1] / maxValue;
+    for (i = 0; i < colorSamples; i++) {
+        components[i] = pixel[first + i] / maxValue;
+        // the samples are premultiplied unless the format says otherwise
+        if (_hasAlpha && !(_bitmapFormat & NSAlphaNonpremultipliedBitmapFormat))
+            components[i] = alpha > 0 ? MIN(1, components[i] / alpha) : 0;
+    }
+
+    if (colorSamples >= 3) {
+        if ([_colorSpaceName isEqualToString: NSCalibratedRGBColorSpace])
+            return [NSColor colorWithCalibratedRed: components[0]
+                                             green: components[1]
+                                              blue: components[2]
+                                             alpha: alpha];
+        return [NSColor colorWithDeviceRed: components[0]
+                                     green: components[1]
+                                      blue: components[2]
+                                     alpha: alpha];
+    }
+
+    if ([_colorSpaceName isEqualToString: NSCalibratedWhiteColorSpace])
+        return [NSColor colorWithCalibratedWhite: components[0] alpha: alpha];
+    return [NSColor colorWithDeviceWhite: components[0] alpha: alpha];
 }
 
 - (void) setColor: (NSColor *) color atX: (NSInteger) x y: (NSInteger) y {
@@ -609,17 +669,10 @@ NSBitmapImageRepPropertyKey NSImageCurrentFrame = @"NSImageCurrentFrame";
     } else {
         int maxValue = (1 << [self bitsPerSample]) - 1;
 
+        // the samples are stored in the order they are named, whatever the host's byte order
         for (i = 0; i < numberOfComponents; i++) {
-#ifdef __LITTLE_ENDIAN__
-            pixels[i] =
-                    MAX(0, MIN(maxValue,
-                               (int) (components[(numberOfComponents - 1) - i] *
-                                      maxValue))); // clamp just in case
-#else
-            pixels[i] = MAX(
-                    0, MIN(maxValue, (int) (components[i] *
-                                            maxValue))); // clamp just in case
-#endif
+            pixels[i] = MAX(0, MIN(maxValue, (int) lround(components[i] *
+                                                            maxValue))); // clamp just in case
         }
     }
 
@@ -767,6 +820,13 @@ NSBitmapImageRepPropertyKey NSImageCurrentFrame = @"NSImageCurrentFrame";
         return _cgImage;
 
     return (CGImageRef)[(id)[self createCGImageIfNeeded] autorelease];
+}
+
+- (CGImageRef) CGImageForProposedRect: (NSRect *) proposedDestRect
+                              context: (NSGraphicsContext *) referenceContext
+                                hints: (NSDictionary *) hints
+{
+    return [self CGImage];
 }
 
 - (BOOL) draw {

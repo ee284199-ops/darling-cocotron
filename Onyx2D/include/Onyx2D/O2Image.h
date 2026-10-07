@@ -249,6 +249,8 @@ O2argb8u *O2ImageRead_ABGR8888_to_argb8u(O2Image *self, int x, int y,
                                          O2argb8u *span, int length);
 O2argb8u *O2ImageRead_BGRA8888_to_argb8u(O2Image *self, int x, int y,
                                          O2argb8u *span, int length);
+O2argb8u *O2ImageRead_ARGB8888_to_argb8u(O2Image *self, int x, int y,
+                                         O2argb8u *span, int length);
 O2argb8u *O2ImageRead_RGB888_to_argb8u(O2Image *self, int x, int y,
                                        O2argb8u *span, int length);
 O2argb8u *O2ImageRead_BGRX8888_to_argb8u(O2Image *self, int x, int y,
