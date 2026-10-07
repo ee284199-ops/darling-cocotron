@@ -928,41 +928,29 @@ CTFontRef CTFontCreateWithQuickdrawInstance(ConstStr255Param name, int16_t ident
 // tables
 //
 
+// Like CoreText, the array holds the tags themselves (no callbacks), not CFNumbers: Skia rebuilds
+// font files from these tags and CTFontCopyTable. FreeType reads the face's own table directory,
+// which also works for faces in .ttc collections.
 CFArrayRef CTFontCopyAvailableTables(CTFontRef font, CTFontTableOptions options) {
-    NSDictionary *attributes = KTFontDescriptorAttributes(font);
-    NSURL *url = [attributes objectForKey: (NSString *) kCTFontURLAttribute];
-    NSData *data;
-    NSMutableArray *tags;
-    const uint8_t *bytes;
-    NSUInteger length;
-    uint16_t tableCount;
-    uint16_t i;
+    CFMutableArrayRef tags = CFArrayCreateMutable(kCFAllocatorDefault, 0, NULL);
+    FT_Face face = KTFontFace(font);
+    FT_ULong count = 0;
+    FT_UInt i;
 
     (void) options;
 
-    if (![url isKindOfClass: [NSURL class]])
-        return (CFArrayRef) [[NSArray array] copy];
+    if (face == NULL || !FT_IS_SFNT(face) || FT_Sfnt_Table_Info(face, 0, NULL, &count) != 0)
+        return tags;
 
-    data = [NSData dataWithContentsOfURL: url];
-    if (data == nil || [data length] < 12)
-        return (CFArrayRef) [[NSArray array] copy];
+    for (i = 0; i < count; i++) {
+        FT_ULong tag = 0;
+        FT_ULong length = 0;
 
-    bytes = [data bytes];
-    length = [data length];
-    tableCount = (uint16_t) ((bytes[4] << 8) | bytes[5]);
-    tags = [NSMutableArray array];
-
-    for (i = 0; i < tableCount; i++) {
-        NSUInteger offset = 12 + (NSUInteger) i * 16;
-        FourCharCode tag;
-        if (offset + 4 > length)
-            break;
-        tag = ((FourCharCode) bytes[offset] << 24) | ((FourCharCode) bytes[offset + 1] << 16) |
-              ((FourCharCode) bytes[offset + 2] << 8) | ((FourCharCode) bytes[offset + 3]);
-        [tags addObject: [NSNumber numberWithUnsignedInt: tag]];
+        if (FT_Sfnt_Table_Info(face, i, &tag, &length) == 0)
+            CFArrayAppendValue(tags, (const void *) (uintptr_t) tag);
     }
 
-    return (CFArrayRef) [tags copy];
+    return tags;
 }
 
 CFDataRef CTFontCopyTable(CTFontRef font, CTFontTableTag table, CTFontTableOptions options) {
