@@ -169,14 +169,11 @@ static void renderFreeTypeBitmap(O2Context_builtin_FT *self, O2Surface *surface,
            advances: (const O2Size *) advances
               count: (NSUInteger) count
 {
-    // FIXME: use advances if not NULL
-
-    O2SurfaceLock(_surface);
-
     O2GState *gState = O2ContextCurrentGState(self);
-    O2Paint *paint = paintFromColor(gState->_fillColor);
     O2AffineTransform Trm = O2ContextGetTextRenderingMatrix(self);
+    O2AffineTransform userToDevice = [gState userSpaceToDeviceSpaceTransform];
 
+    // where the first glyph goes, in device space
     NSPoint point = O2PointApplyAffineTransform(NSMakePoint(0, 0), Trm);
 
     // Only use the scaling part of the current transform to scale the font size
@@ -191,13 +188,13 @@ static void renderFreeTypeBitmap(O2Context_builtin_FT *self, O2Surface *surface,
 
     O2Font_freetype *font = (O2Font_freetype *) gState->_font;
     FT_Face face = [font face];
+    O2FontFreeTypeLockScope();
 
-    int i;
+    NSUInteger i;
     FT_Error ftError;
 
     if (face == NULL) {
         NSLog(@"face is NULL");
-        O2SurfaceUnlock(_surface);
         return;
     }
 
@@ -206,42 +203,46 @@ static void renderFreeTypeBitmap(O2Context_builtin_FT *self, O2Surface *surface,
     if ((ftError =
                  FT_Set_Char_Size(face, 0, fontSize.height * 64, 72.0, 72.0))) {
         NSLog(@"FT_Set_Char_Size returned %d", ftError);
-        O2SurfaceUnlock(_surface);
         return;
     }
 
+    O2SurfaceLock(_surface);
+    O2Paint *paint = paintFromColor(gState->_fillColor);
+    // how far the glyphs moved the text position, in device space
+    O2Size moved = O2SizeMake(0, 0);
+
     for (i = 0; i < count; i++) {
+        O2Size deviceAdvance = O2SizeMake(0, 0);
 
         ftError = FT_Load_Glyph(face, glyphs[i], FT_LOAD_DEFAULT);
-        if (ftError)
-            continue;
+        if (ftError == 0) {
+            deviceAdvance = O2SizeMake(slot->advance.x / 64.0, slot->advance.y / 64.0);
+            if (FT_Render_Glyph(face->glyph, FT_RENDER_MODE_NORMAL) == 0)
+                renderFreeTypeBitmap(self, _surface, &slot->bitmap,
+                                     (NSInteger) floor(point.x + 0.5) + slot->bitmap_left,
+                                     (NSInteger) floor(point.y + 0.5) - slot->bitmap_top, paint);
+        }
 
-        ftError = FT_Render_Glyph(face->glyph, FT_RENDER_MODE_NORMAL);
-        if (ftError)
-            continue;
+        // The given advances (user space) place the next glyph; without them the glyph's own
+        // advance does.
+        if (advances != NULL)
+            deviceAdvance = O2SizeApplyAffineTransform(advances[i], userToDevice);
 
-        renderFreeTypeBitmap(self, _surface, &slot->bitmap,
-                             point.x + slot->bitmap_left,
-                             point.y - slot->bitmap_top, paint);
-
-        point.x += slot->advance.x >> 6;
+        point.x += deviceAdvance.width;
+        point.y += deviceAdvance.height;
+        moved.width += deviceAdvance.width;
+        moved.height += deviceAdvance.height;
     }
 
     O2PaintRelease(paint);
-
-    int glyphAdvances[count];
-    O2Float unitsPerEm = O2FontGetUnitsPerEm(font);
-
-    O2FontGetGlyphAdvances(font, glyphs, count, glyphAdvances);
-
-    O2Float total = 0;
-
-    for (i = 0; i < count; i++)
-        total += glyphAdvances[i];
-
-    total = (total / O2FontGetUnitsPerEm(font)) * gState->_pointSize;
-
     O2SurfaceUnlock(_surface);
+
+    // Like Quartz, leave the text position after the last glyph.
+    O2Size userMoved = O2SizeApplyAffineTransform(moved, O2AffineTransformInvert(userToDevice));
+    O2AffineTransform textMatrix = O2ContextGetTextMatrix(self);
+
+    O2ContextSetTextPosition(self, textMatrix.tx + userMoved.width,
+                             textMatrix.ty + userMoved.height);
 }
 
 @end
