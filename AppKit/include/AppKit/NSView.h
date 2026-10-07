@@ -164,6 +164,8 @@ APPKIT_EXPORT const NSViewFullScreenModeOptionKey NSFullScreenModeApplicationPre
 - (CGFloat) frameRotation;
 - (CGFloat) frameCenterRotation;
 - (NSRect) bounds;
+- (NSSize) intrinsicContentSize;
+- (NSSize) fittingSize;
 - (CGFloat) boundsRotation;
 - (BOOL) isRotatedFromBase;
 - (BOOL) isRotatedOrScaledFromBase;

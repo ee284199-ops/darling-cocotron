@@ -20,4 +20,5 @@
 #import <AppKit/NSLayoutConstraint.h>
 
 const CGFloat NSViewNoInstrinsicMetric = 0xbff0000000000000;
-const CGFloat NSViewNoIntrinsicMetric = 0xbff0000000000000;
+// -1.0 (its bit pattern is 0xbff0000000000000)
+const CGFloat NSViewNoIntrinsicMetric = -1.0;

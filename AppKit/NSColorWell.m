@@ -78,6 +78,7 @@ NSNotificationName _NSColorWellDidBecomeExclusiveNotification =
     _isEnabled = YES;
     _isContinuous = YES;
     _isBordered = YES;
+    _colorWellStyle = NSColorWellStyleDefault;
     _color = [[NSColor whiteColor] copy];
 
     [[NSNotificationCenter defaultCenter]
@@ -162,6 +163,15 @@ NSNotificationName _NSColorWellDidBecomeExclusiveNotification =
 
 - (BOOL) isActive {
     return _isActive && [self isEnabled];
+}
+
+- (NSColorWellStyle) colorWellStyle {
+    return _colorWellStyle;
+}
+
+- (void) setColorWellStyle: (NSColorWellStyle) style {
+    _colorWellStyle = style;
+    [self setNeedsDisplay: YES];
 }
 
 - (void) setColor: (NSColor *) color {

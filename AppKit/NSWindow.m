@@ -208,6 +208,43 @@ NSInteger NSBitsPerPixelFromDepth(NSWindowDepth depth) {
 
 @end
 
+@interface _NSWindowSheetCompletionHandler : NSObject {
+    void (^_completionHandler)(NSInteger returnCode);
+}
+
+- (id) initWithCompletionHandler: (void (^)(NSInteger returnCode)) handler;
+
+- (void) sheetDidEnd: (NSWindow *) sheet
+             returnCode: (NSInteger) returnCode
+            contextInfo: (void *) contextInfo;
+
+@end
+
+@implementation _NSWindowSheetCompletionHandler
+
+- (id) initWithCompletionHandler: (void (^)(NSInteger returnCode)) handler {
+    self = [super init];
+    _completionHandler = [handler copy];
+    return self;
+}
+
+- (void) sheetDidEnd: (NSWindow *) sheet
+             returnCode: (NSInteger) returnCode
+            contextInfo: (void *) contextInfo
+{
+    if (_completionHandler != NULL)
+        _completionHandler(returnCode);
+
+    [self release];
+}
+
+- (void) dealloc {
+    [_completionHandler release];
+    [super dealloc];
+}
+
+@end
+
 @implementation NSWindow
 
 @synthesize identifier = _identifier;
@@ -347,6 +384,8 @@ static BOOL _allowsAutomaticWindowTabbing;
     _collectionBehavior = NSWindowCollectionBehaviorDefault;
     _tabbingMode = NSWindowTabbingModeAutomatic;
     _titleVisibility = NSWindowTitleVisible;
+    _toolbarStyle = NSWindowToolbarStyleAutomatic;
+    _restorationClass = Nil;
 
     _threadToContext = [[NSMutableDictionary alloc] init];
 
@@ -1442,6 +1481,50 @@ static BOOL _allowsAutomaticWindowTabbing;
 
 - (NSWindow *) attachedSheet {
     return [_sheetContext sheet];
+}
+
+- (void) beginSheet: (NSWindow *) sheet
+    completionHandler: (void (^)(NSInteger returnCode)) handler
+{
+    _NSWindowSheetCompletionHandler *handlerObject =
+            [[_NSWindowSheetCompletionHandler alloc]
+                    initWithCompletionHandler: handler];
+
+    [NSApp beginSheet: sheet
+            modalForWindow: self
+             modalDelegate: handlerObject
+            didEndSelector: @selector(sheetDidEnd:returnCode:contextInfo:)
+               contextInfo: NULL];
+}
+
+- (void) beginCriticalSheet: (NSWindow *) sheet
+              completionHandler: (void (^)(NSInteger returnCode)) handler
+{
+    [self beginSheet: sheet completionHandler: handler];
+}
+
+- (void) endSheet: (NSWindow *) sheet returnCode: (NSInteger) returnCode {
+    [NSApp endSheet: sheet returnCode: returnCode];
+}
+
+- (void) endSheet: (NSWindow *) sheet {
+    [self endSheet: sheet returnCode: NSModalResponseStop];
+}
+
+- (NSWindowToolbarStyle) toolbarStyle {
+    return _toolbarStyle;
+}
+
+- (void) setToolbarStyle: (NSWindowToolbarStyle) style {
+    _toolbarStyle = style;
+}
+
+- (Class) restorationClass {
+    return _restorationClass;
+}
+
+- (void) setRestorationClass: (Class) value {
+    _restorationClass = value;
 }
 
 - (id) windowController {

@@ -132,6 +132,10 @@ const CGFloat NSTableViewDefaultRowHeight = 16.0f;
         _editedRow = -1;
         _numberOfRows = -1;
         _draggingRow = -1;
+        _style = NSTableViewStyleAutomatic;
+        _usesAutomaticRowHeights = NO;
+        _dropRow = -1;
+        _updateCount = 0;
 
         // row background and grid attributes for OS X >= 10.3
         _alternatingRowBackground = (flags & 0x00800000) ? YES : NO;
@@ -159,6 +163,10 @@ const CGFloat NSTableViewDefaultRowHeight = 16.0f;
     _editedRow = -1;
     _numberOfRows = -1;
     _draggingRow = -1;
+    _style = NSTableViewStyleAutomatic;
+    _usesAutomaticRowHeights = NO;
+    _dropRow = -1;
+    _updateCount = 0;
 
     _allowsColumnReordering = YES;
     _allowsColumnResizing = YES;
@@ -685,6 +693,37 @@ static CGFloat rowHeightAtIndex(NSTableView *self, NSInteger index) {
     [self setNeedsDisplay: YES];
 }
 
+- (NSTableViewStyle) style {
+    return _style;
+}
+
+- (void) setStyle: (NSTableViewStyle) style {
+    _style = style;
+    [self setNeedsDisplay: YES];
+}
+
+- (NSTableViewStyle) effectiveStyle {
+    if (_style == NSTableViewStyleAutomatic)
+        return NSTableViewStyleFullWidth;
+
+    return _style;
+}
+
+- (BOOL) usesAutomaticRowHeights {
+    return _usesAutomaticRowHeights;
+}
+
+- (void) setUsesAutomaticRowHeights: (BOOL) flag {
+    _usesAutomaticRowHeights = flag;
+}
+
+- (void) setDropRow: (NSInteger) row
+      dropOperation: (NSTableViewDropOperation) operation
+{
+    _dropRow = row;
+    _dropOperation = operation;
+}
+
 // the appkit dox are pretty vague on these two. should they trigger a redraw or
 // reloadData? also.. i wonder if remove should use an isEqual method in
 // NSTableColumn, or removeObjectIdenticalTo...
@@ -1189,6 +1228,137 @@ static CGFloat rowHeightAtIndex(NSTableView *self, NSInteger index) {
     [self noteNumberOfRowsChanged];
     [self setNeedsDisplay: YES];
     [_headerView setNeedsDisplay: YES];
+}
+
+- (void) reloadDataForRowIndexes: (NSIndexSet *) rowIndexes
+                   columnIndexes: (NSIndexSet *) columnIndexes
+{
+    NSUInteger row = [rowIndexes firstIndex];
+
+    while (row != NSNotFound) {
+        [self setNeedsDisplayInRect: [self rectOfRow: (NSInteger) row]];
+        row = [rowIndexes indexGreaterThanIndex: row];
+    }
+}
+
+- (void) _adjustSelectionForInsertedRowIndexes: (NSIndexSet *) indexes {
+    NSMutableIndexSet *newSelection = [[NSMutableIndexSet alloc] init];
+    NSUInteger index = [_selectedRowIndexes firstIndex];
+
+    while (index != NSNotFound) {
+        // the indexes are where the new rows end up, so apply them in order
+        NSUInteger moved = index;
+        NSUInteger inserted = [indexes firstIndex];
+
+        while (inserted != NSNotFound && inserted <= moved) {
+            moved++;
+            inserted = [indexes indexGreaterThanIndex: inserted];
+        }
+
+        [newSelection addIndex: moved];
+        index = [_selectedRowIndexes indexGreaterThanIndex: index];
+    }
+
+    [self _setSelectedRowIndexes: newSelection];
+    [newSelection release];
+}
+
+- (void) _adjustSelectionForRemovedRowIndexes: (NSIndexSet *) indexes {
+    NSMutableIndexSet *newSelection = [[NSMutableIndexSet alloc] init];
+    NSUInteger index = [_selectedRowIndexes firstIndex];
+
+    while (index != NSNotFound) {
+        if (![indexes containsIndex: index]) {
+            NSUInteger shift = 0;
+            NSUInteger removed = [indexes firstIndex];
+
+            while (removed != NSNotFound) {
+                if (removed < index)
+                    shift++;
+                removed = [indexes indexGreaterThanIndex: removed];
+            }
+
+            [newSelection addIndex: index - shift];
+        }
+        index = [_selectedRowIndexes indexGreaterThanIndex: index];
+    }
+
+    [self _setSelectedRowIndexes: newSelection];
+    [newSelection release];
+}
+
+- (void) _adjustSelectionForRowMoveFromIndex: (NSInteger) fromIndex
+                                     toIndex: (NSInteger) toIndex
+{
+    NSMutableIndexSet *newSelection = [[NSMutableIndexSet alloc] init];
+    NSUInteger index = [_selectedRowIndexes firstIndex];
+
+    while (index != NSNotFound) {
+        NSUInteger newIndex = index;
+
+        if (index == (NSUInteger) fromIndex) {
+            newIndex = (NSUInteger) toIndex;
+        } else if (fromIndex < toIndex) {
+            if (index > (NSUInteger) fromIndex &&
+                index <= (NSUInteger) toIndex)
+                newIndex = index - 1;
+        } else if (toIndex < fromIndex) {
+            if (index >= (NSUInteger) toIndex &&
+                index < (NSUInteger) fromIndex)
+                newIndex = index + 1;
+        }
+
+        [newSelection addIndex: newIndex];
+        index = [_selectedRowIndexes indexGreaterThanIndex: index];
+    }
+
+    [self _setSelectedRowIndexes: newSelection];
+    [newSelection release];
+}
+
+- (void) beginUpdates {
+    _updateCount++;
+}
+
+- (void) endUpdates {
+    if (_updateCount > 0)
+        _updateCount--;
+
+    if (_updateCount == 0) {
+        [self noteNumberOfRowsChanged];
+        [self setNeedsDisplay: YES];
+    }
+}
+
+- (void) insertRowsAtIndexes: (NSIndexSet *) indexes
+                withAnimation: (NSTableViewAnimationOptions) animationOptions
+{
+    [self _adjustSelectionForInsertedRowIndexes: indexes];
+
+    if (_updateCount == 0) {
+        [self noteNumberOfRowsChanged];
+        [self setNeedsDisplay: YES];
+    }
+}
+
+- (void) removeRowsAtIndexes: (NSIndexSet *) indexes
+                withAnimation: (NSTableViewAnimationOptions) animationOptions
+{
+    [self _adjustSelectionForRemovedRowIndexes: indexes];
+
+    if (_updateCount == 0) {
+        [self noteNumberOfRowsChanged];
+        [self setNeedsDisplay: YES];
+    }
+}
+
+- (void) moveRowAtIndex: (NSInteger) fromIndex toIndex: (NSInteger) toIndex {
+    [self _adjustSelectionForRowMoveFromIndex: fromIndex toIndex: toIndex];
+
+    if (_updateCount == 0) {
+        [self noteNumberOfRowsChanged];
+        [self setNeedsDisplay: YES];
+    }
 }
 
 - (void) tile {

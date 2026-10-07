@@ -27,6 +27,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 @implementation NSSavePanel
 
 @synthesize showsHiddenFiles=_showsHiddenFiles;
+@synthesize canSelectHiddenExtension=_canSelectHiddenExtension;
+@synthesize extensionHidden=_extensionHidden;
 
 - (id) resetToDefaultValues {
     _dialogTitle = @"Save";
@@ -37,6 +39,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     _treatsFilePackagesAsDirectories = NO;
     _accessoryView = nil;
     _showsHiddenFiles = false;
+    _canSelectHiddenExtension = false;
+    _extensionHidden = false;
     return self;
 }
 

@@ -645,6 +645,23 @@ static inline void buildTransformsIfNeeded(NSView *self) {
     return _bounds;
 }
 
+- (NSSize) intrinsicContentSize {
+    return NSMakeSize(NSViewNoIntrinsicMetric, NSViewNoIntrinsicMetric);
+}
+
+- (NSSize) fittingSize {
+    NSSize size = [self frame].size;
+    NSSize intrinsic = [self intrinsicContentSize];
+
+    if (intrinsic.width != NSViewNoIntrinsicMetric)
+        size.width = intrinsic.width;
+
+    if (intrinsic.height != NSViewNoIntrinsicMetric)
+        size.height = intrinsic.height;
+
+    return size;
+}
+
 - (CGFloat) boundsRotation {
     return _boundsRotation;
 }

@@ -57,6 +57,8 @@ APPKIT_EXPORT NSString *const NSOutlineViewDisclosureButtonKey;
     BOOL _autoresizesOutlineColumn;
     BOOL _autosaveExpandedItems;
     CGFloat _editingCellPadding;
+
+    BOOL _needsReloadAfterUpdates;
 }
 
 - (NSTableColumn *) outlineTableColumn;
@@ -88,6 +90,20 @@ APPKIT_EXPORT NSString *const NSOutlineViewDisclosureButtonKey;
 - (void) collapseItem: item;
 - (void) reloadItem: item reloadChildren: (BOOL) reloadChildren;
 - (void) reloadItem: item;
+
+- (void) beginUpdates;
+- (void) endUpdates;
+
+- (void) insertItemsAtIndexes: (NSIndexSet *) indexes
+                      inParent: (id) parent
+                 withAnimation: (NSTableViewAnimationOptions) animationOptions;
+- (void) removeItemsAtIndexes: (NSIndexSet *) indexes
+                      inParent: (id) parent
+                 withAnimation: (NSTableViewAnimationOptions) animationOptions;
+- (void) moveItemAtIndex: (NSInteger) index
+                 inParent: (id) parent
+                  toIndex: (NSInteger) newIndex
+                 inParent: (id) newParent;
 
 - (void) setDropItem: item dropChildIndex: (NSInteger) index;
 - (BOOL) shouldCollapseAutoExpandedItemsForDeposited: (BOOL) collapse;

@@ -20,6 +20,9 @@
 
 #import "NSAnimationContext.h"
 #import <AppKit/NSRaise.h>
+#import <QuartzCore/CAMediaTimingFunction.h>
+
+static NSAnimationContext *_currentAnimationContext = nil;
 
 @implementation NSAnimationContext
 
@@ -28,23 +31,75 @@
 }
 
 + (void) beginGrouping {
-    NSUnimplementedMethod();
 }
+
 + (void) endGrouping {
-    NSUnimplementedMethod();
 }
 
 + (NSAnimationContext *) currentContext {
-    NSUnimplementedMethod();
-    return nil;
+    if (_currentAnimationContext == nil)
+        _currentAnimationContext = [[NSAnimationContext alloc] init];
+
+    return _currentAnimationContext;
 }
 
 - (void) setDuration: (NSTimeInterval) duration {
-    NSUnimplementedMethod();
+    _duration = duration;
 }
+
 - (NSTimeInterval) duration {
-    NSUnimplementedMethod();
-    return 0;
+    return _duration;
+}
+
+- (void) setTimingFunction: (CAMediaTimingFunction *) timingFunction {
+    [timingFunction retain];
+    [_timingFunction release];
+    _timingFunction = timingFunction;
+}
+
+- (CAMediaTimingFunction *) timingFunction {
+    return [[_timingFunction retain] autorelease];
+}
+
+- (void) setCompletionHandler: (void (^)(void)) completionHandler {
+    id oldValue = _completionHandler;
+
+    _completionHandler = [completionHandler copy];
+    [oldValue release];
+}
+
+- (void (^)(void)) completionHandler {
+    return _completionHandler;
+}
+
+- (BOOL) allowsImplicitAnimation {
+    return _allowsImplicitAnimation;
+}
+
+- (void) setAllowsImplicitAnimation: (BOOL) flag {
+    _allowsImplicitAnimation = flag;
+}
+
++ (void) runAnimationGroup: (void (^)(NSAnimationContext *context)) changes
+         completionHandler: (void (^)(void)) completionHandler
+{
+    NSAnimationContext *context = [self currentContext];
+
+    if (changes != NULL)
+        changes(context);
+
+    if (completionHandler != NULL)
+        completionHandler();
+}
+
++ (void) runAnimationGroup: (void (^)(NSAnimationContext *context)) changes {
+    [self runAnimationGroup: changes completionHandler: NULL];
+}
+
+- (void) dealloc {
+    [_timingFunction release];
+    [_completionHandler release];
+    [super dealloc];
 }
 
 @end

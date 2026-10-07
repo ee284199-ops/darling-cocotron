@@ -75,6 +75,24 @@ typedef enum {
     NSTableViewDropAbove
 } NSTableViewDropOperation;
 
+typedef NS_ENUM(NSInteger, NSTableViewStyle) {
+    NSTableViewStyleAutomatic = 0,
+    NSTableViewStyleFullWidth = 1,
+    NSTableViewStyleInset = 2,
+    NSTableViewStyleSourceList = 3,
+    NSTableViewStylePlain = 4
+};
+
+typedef NS_OPTIONS(NSUInteger, NSTableViewAnimationOptions) {
+    NSTableViewAnimationEffectNone = 0x0,
+    NSTableViewAnimationEffectFade = 0x1,
+    NSTableViewAnimationEffectGap = 0x2,
+    NSTableViewAnimationSlideUp = 0x10,
+    NSTableViewAnimationSlideDown = 0x20,
+    NSTableViewAnimationSlideLeft = 0x30,
+    NSTableViewAnimationSlideRight = 0x40
+};
+
 @interface NSTableView : NSControl {
     id _target;
     SEL _action;
@@ -104,6 +122,9 @@ typedef enum {
     unsigned int _gridStyleMask;
     NSTableViewSelectionHighlightStyle _selectionHighlightStyle;
 
+    NSTableViewStyle _style;
+    BOOL _usesAutomaticRowHeights;
+
     // temp ivars
     NSMutableArray *_selectedColumns;
     NSIndexSet *_selectedRowIndexes;
@@ -115,6 +136,10 @@ typedef enum {
     NSArray *_sortDescriptors;
 
     NSInteger _draggingRow;
+
+    NSInteger _dropRow;
+    NSTableViewDropOperation _dropOperation;
+    NSInteger _updateCount;
 }
 
 - (SEL) doubleAction;
@@ -185,6 +210,13 @@ typedef enum {
 - (void) setGridStyleMask: (unsigned int) gridStyle;
 - (void) setSelectionHighlightStyle: (NSTableViewSelectionHighlightStyle) value;
 
+- (NSTableViewStyle) style;
+- (void) setStyle: (NSTableViewStyle) style;
+- (NSTableViewStyle) effectiveStyle;
+
+- (BOOL) usesAutomaticRowHeights;
+- (void) setUsesAutomaticRowHeights: (BOOL) flag;
+
 - (void) addTableColumn: (NSTableColumn *) column;
 - (void) removeTableColumn: (NSTableColumn *) column;
 - (void) moveColumn: (NSInteger) columnIndex toColumn: (NSInteger) newIndex;
@@ -222,6 +254,20 @@ typedef enum {
 - (void) noteNumberOfRowsChanged;
 - (void) noteHeightOfRowsWithIndexesChanged: (NSIndexSet *) indexSet;
 - (void) reloadData;
+- (void) reloadDataForRowIndexes: (NSIndexSet *) rowIndexes
+                   columnIndexes: (NSIndexSet *) columnIndexes;
+- (void) beginUpdates;
+- (void) endUpdates;
+
+- (void) insertRowsAtIndexes: (NSIndexSet *) indexes
+                withAnimation: (NSTableViewAnimationOptions) animationOptions;
+- (void) removeRowsAtIndexes: (NSIndexSet *) indexes
+                withAnimation: (NSTableViewAnimationOptions) animationOptions;
+- (void) moveRowAtIndex: (NSInteger) fromIndex toIndex: (NSInteger) toIndex;
+
+- (void) setDropRow: (NSInteger) row
+      dropOperation: (NSTableViewDropOperation) operation;
+
 - (void) tile;
 
 - (void) sizeLastColumnToFit;

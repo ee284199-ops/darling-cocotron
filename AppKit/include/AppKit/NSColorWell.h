@@ -21,6 +21,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 @class NSColor;
 
+typedef NS_ENUM(NSInteger, NSColorWellStyle) {
+    NSColorWellStyleDefault = 0,
+    NSColorWellStyleMinimal = 1,
+    NSColorWellStyleExpanded = 2
+};
+
 @interface NSColorWell : NSControl {
     NSColor *_color;
     id _target;
@@ -30,11 +36,15 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     BOOL _isBordered;
     BOOL _isActive;
     BOOL _notifyingColorPanel;
+    NSColorWellStyle _colorWellStyle;
 }
 
 - (NSColor *) color;
 - (BOOL) isBordered;
 - (BOOL) isActive;
+
+- (NSColorWellStyle) colorWellStyle;
+- (void) setColorWellStyle: (NSColorWellStyle) style;
 
 - (void) setColor: (NSColor *) color;
 - (void) setBordered: (BOOL) flag;

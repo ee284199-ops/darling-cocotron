@@ -17,4 +17,37 @@
  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  SOFTWARE. */
-#import <AppKit/NSAnimationContext.h>
+#import <Foundation/NSDate.h>
+#import <Foundation/NSObject.h>
+
+@class CAMediaTimingFunction;
+
+@interface NSAnimationContext : NSObject <NSCopying> {
+    NSTimeInterval _duration;
+    BOOL _allowsImplicitAnimation;
+    CAMediaTimingFunction *_timingFunction;
+    void (^_completionHandler)(void);
+}
+
++ (void) beginGrouping;
++ (void) endGrouping;
+
++ (NSAnimationContext *) currentContext;
+
+- (void) setDuration: (NSTimeInterval) duration;
+- (NSTimeInterval) duration;
+
+- (void) setTimingFunction: (CAMediaTimingFunction *) timingFunction;
+- (CAMediaTimingFunction *) timingFunction;
+
+- (void) setCompletionHandler: (void (^)(void)) completionHandler;
+- (void (^)(void)) completionHandler;
+
+- (BOOL) allowsImplicitAnimation;
+- (void) setAllowsImplicitAnimation: (BOOL) flag;
+
++ (void) runAnimationGroup: (void (^)(NSAnimationContext *context)) changes
+         completionHandler: (void (^)(void)) completionHandler;
++ (void) runAnimationGroup: (void (^)(NSAnimationContext *context)) changes;
+
+@end

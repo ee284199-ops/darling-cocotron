@@ -480,6 +480,53 @@ static inline id childOfItemAtIndex(NSOutlineView *self, id item,
     [self reloadItem: item reloadChildren: NO];
 }
 
+- (void) _reloadItemsInParent: parent {
+    if (_updateCount > 0) {
+        _needsReloadAfterUpdates = YES;
+        return;
+    }
+
+    if (parent != nil)
+        [self reloadItem: parent reloadChildren: YES];
+    else
+        [self reloadData];
+}
+
+- (void) beginUpdates {
+    [super beginUpdates];
+}
+
+- (void) endUpdates {
+    [super endUpdates];
+
+    if (_updateCount == 0 && _needsReloadAfterUpdates) {
+        _needsReloadAfterUpdates = NO;
+        [self reloadData];
+    }
+}
+
+- (void) insertItemsAtIndexes: (NSIndexSet *) indexes
+                      inParent: parent
+                 withAnimation: (NSTableViewAnimationOptions) animationOptions
+{
+    [self _reloadItemsInParent: parent];
+}
+
+- (void) removeItemsAtIndexes: (NSIndexSet *) indexes
+                      inParent: parent
+                 withAnimation: (NSTableViewAnimationOptions) animationOptions
+{
+    [self _reloadItemsInParent: parent];
+}
+
+- (void) moveItemAtIndex: (NSInteger) index
+                 inParent: parent
+                  toIndex: (NSInteger) newIndex
+                 inParent: newParent
+{
+    [self _reloadItemsInParent: newParent];
+}
+
 - (void) setDropItem: (id) item dropChildIndex: (NSInteger) index {
     NSUnimplementedMethod();
 }

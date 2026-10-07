@@ -67,7 +67,13 @@ typedef id NSModalSession;
 enum {
     NSRunStoppedResponse = -1000,
     NSRunAbortedResponse = -1001,
-    NSRunContinuesResponse = -1002
+    NSRunContinuesResponse = -1002,
+
+    NSModalResponseStop = -1000,
+    NSModalResponseAbort = -1001,
+    NSModalResponseContinue = -1002,
+    NSModalResponseOK = 1,
+    NSModalResponseCancel = 0,
 };
 
 typedef enum {

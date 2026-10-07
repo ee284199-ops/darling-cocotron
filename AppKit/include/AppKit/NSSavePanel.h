@@ -42,6 +42,8 @@ enum {
     BOOL _showsHiddenFiles;
 
     BOOL _treatsFilePackagesAsDirectories;
+    BOOL _canSelectHiddenExtension;
+    BOOL _extensionHidden;
     NSView *_accessoryView;
 
     IBOutlet NSOutlineView *_outlineView;
@@ -49,6 +51,8 @@ enum {
 
 @property (copy) NSString *nameFieldStringValue;
 @property BOOL showsHiddenFiles;
+@property BOOL canSelectHiddenExtension;
+@property (getter=isExtensionHidden) BOOL extensionHidden;
 
 + (NSSavePanel *) savePanel;
 

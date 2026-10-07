@@ -142,6 +142,14 @@ typedef NS_ENUM(NSUInteger, NSWindowSharingType) {
     NSWindowSharingReadWrite = 0x02
 };
 
+typedef NS_ENUM(NSInteger, NSWindowToolbarStyle) {
+    NSWindowToolbarStyleAutomatic = 0,
+    NSWindowToolbarStyleExpanded = 1,
+    NSWindowToolbarStylePreference = 2,
+    NSWindowToolbarStyleUnified = 3,
+    NSWindowToolbarStyleUnifiedCompact = 4
+};
+
 typedef int NSSelectionDirection;
 
 APPKIT_EXPORT const NSNotificationName NSWindowDidBecomeKeyNotification;
@@ -277,6 +285,9 @@ APPKIT_EXPORT const NSNotificationName NSWindowDidExposeNotification;
     NSWindowTitleVisibility _titleVisibility;
     BOOL _titlebarAppearsTransparent;
     NSAppearance *_appearance;
+
+    NSWindowToolbarStyle _toolbarStyle;
+    Class _restorationClass;
 
     BOOL _isAccessible;
 }
@@ -457,6 +468,18 @@ APPKIT_EXPORT const NSNotificationName NSWindowDidExposeNotification;
 - (NSButton *) standardWindowButton: (NSWindowButton) value;
 - (NSButtonCell *) defaultButtonCell;
 - (NSWindow *) attachedSheet;
+
+- (void) beginSheet: (NSWindow *) sheet
+    completionHandler: (void (^)(NSInteger returnCode)) handler;
+- (void) beginCriticalSheet: (NSWindow *) sheet
+              completionHandler: (void (^)(NSInteger returnCode)) handler;
+- (void) endSheet: (NSWindow *) sheet;
+- (void) endSheet: (NSWindow *) sheet returnCode: (NSInteger) returnCode;
+
+- (NSWindowToolbarStyle) toolbarStyle;
+- (void) setToolbarStyle: (NSWindowToolbarStyle) style;
+- (Class) restorationClass;
+- (void) setRestorationClass: (Class) value;
 
 - (id) windowController;
 - (NSArray *) drawers;
