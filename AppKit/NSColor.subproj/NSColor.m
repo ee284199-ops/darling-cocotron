@@ -21,6 +21,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSColor.h>
 #import <AppKit/NSColor_CGColor.h>
 #import <AppKit/NSColor_catalog.h>
+#import <AppKit/NSColorSpace.h>
 #import <AppKit/NSImage.h>
 #import <AppKit/NSRaise.h>
 
@@ -495,6 +496,124 @@ NSNotificationName const NSSystemColorsDidChangeNotification = @"NSSystemColorsD
                                       nil];
 }
 
+// The newer semantic and system colors, with their macOS light appearance values.
+
++ (NSColor *) secondaryLabelColor {
+    return [NSColor colorWithSRGBRed: 0 green: 0 blue: 0 alpha: 0.5];
+}
+
++ (NSColor *) tertiaryLabelColor {
+    return [NSColor colorWithSRGBRed: 0 green: 0 blue: 0 alpha: 0.26];
+}
+
++ (NSColor *) quaternaryLabelColor {
+    return [NSColor colorWithSRGBRed: 0 green: 0 blue: 0 alpha: 0.1];
+}
+
++ (NSColor *) placeholderTextColor {
+    return [NSColor colorWithSRGBRed: 0 green: 0 blue: 0 alpha: 0.25];
+}
+
++ (NSColor *) windowFrameTextColor {
+    return [NSColor colorWithSRGBRed: 0 green: 0 blue: 0 alpha: 0.85];
+}
+
++ (NSColor *) separatorColor {
+    return [NSColor colorWithSRGBRed: 0 green: 0 blue: 0 alpha: 0.1];
+}
+
++ (NSColor *) underPageBackgroundColor {
+    return [NSColor colorWithSRGBRed: 0.588 green: 0.588 blue: 0.588 alpha: 0.9];
+}
+
++ (NSColor *) findHighlightColor {
+    return [NSColor colorWithSRGBRed: 1.0 green: 1.0 blue: 0.0 alpha: 1.0];
+}
+
++ (NSColor *) scrubberTexturedBackgroundColor {
+    return [NSColor colorWithSRGBRed: 0.192 green: 0.192 blue: 0.192 alpha: 1.0];
+}
+
++ (NSColor *) systemRedColor {
+    return [NSColor colorWithSRGBRed: 1.0 green: 0.231 blue: 0.188 alpha: 1.0];
+}
+
++ (NSColor *) systemGreenColor {
+    return [NSColor colorWithSRGBRed: 0.157 green: 0.804 blue: 0.255 alpha: 1.0];
+}
+
++ (NSColor *) systemBlueColor {
+    return [NSColor colorWithSRGBRed: 0.0 green: 0.478 blue: 1.0 alpha: 1.0];
+}
+
++ (NSColor *) systemOrangeColor {
+    return [NSColor colorWithSRGBRed: 1.0 green: 0.584 blue: 0.0 alpha: 1.0];
+}
+
++ (NSColor *) systemYellowColor {
+    return [NSColor colorWithSRGBRed: 1.0 green: 0.8 blue: 0.0 alpha: 1.0];
+}
+
++ (NSColor *) systemBrownColor {
+    return [NSColor colorWithSRGBRed: 0.635 green: 0.518 blue: 0.369 alpha: 1.0];
+}
+
++ (NSColor *) systemPinkColor {
+    return [NSColor colorWithSRGBRed: 1.0 green: 0.176 blue: 0.333 alpha: 1.0];
+}
+
++ (NSColor *) systemPurpleColor {
+    return [NSColor colorWithSRGBRed: 0.686 green: 0.322 blue: 0.871 alpha: 1.0];
+}
+
++ (NSColor *) systemGrayColor {
+    return [NSColor colorWithSRGBRed: 0.557 green: 0.557 blue: 0.576 alpha: 1.0];
+}
+
++ (NSColor *) systemTealColor {
+    return [NSColor colorWithSRGBRed: 0.349 green: 0.678 blue: 0.769 alpha: 1.0];
+}
+
++ (NSColor *) systemIndigoColor {
+    return [NSColor colorWithSRGBRed: 0.345 green: 0.337 blue: 0.839 alpha: 1.0];
+}
+
++ (NSColor *) systemMintColor {
+    return [NSColor colorWithSRGBRed: 0.0 green: 0.78 blue: 0.745 alpha: 1.0];
+}
+
++ (NSColor *) systemCyanColor {
+    return [NSColor colorWithSRGBRed: 0.333 green: 0.745 blue: 0.941 alpha: 1.0];
+}
+
++ (NSColor *) controlAccentColor {
+    return [self systemBlueColor];
+}
+
++ (NSColor *) textInsertionPointColor {
+    return [self controlAccentColor];
+}
+
++ (NSColor *) systemFillColor {
+    return [NSColor colorWithSRGBRed: 0 green: 0 blue: 0 alpha: 0.1];
+}
+
++ (NSColor *) secondarySystemFillColor {
+    return [NSColor colorWithSRGBRed: 0 green: 0 blue: 0 alpha: 0.08];
+}
+
++ (NSColor *) tertiarySystemFillColor {
+    return [NSColor colorWithSRGBRed: 0 green: 0 blue: 0 alpha: 0.05];
+}
+
++ (NSColor *) quaternarySystemFillColor {
+    return [NSColor colorWithSRGBRed: 0 green: 0 blue: 0 alpha: 0.03];
+}
+
++ (NSColor *) quinarySystemFillColor {
+    return [NSColor colorWithSRGBRed: 0 green: 0 blue: 0 alpha: 0.02];
+}
+
 + (NSColor *) clearColor {
     return [NSColor colorWithCalibratedRed: 0 green: 0 blue: 0 alpha: 0];
 }
@@ -901,6 +1020,58 @@ static void releasePatternInfo(void *info) {
 - (NSColor *) colorWithAlphaComponent: (CGFloat) alpha {
     if (alpha >= 1.0)
         return self;
+    return nil;
+}
+
+- (NSColorType) type {
+    NSColorSpaceName space = [self colorSpaceName];
+
+    if ([space isEqualToString: NSPatternColorSpace])
+        return NSColorTypePattern;
+    if ([space isEqualToString: NSNamedColorSpace])
+        return NSColorTypeCatalog;
+    return NSColorTypeComponentBased;
+}
+
+- (NSColor *) colorUsingType: (NSColorType) type {
+    NSColorType ownType = [self type];
+
+    if (type == ownType)
+        return self;
+    // catalog colors resolve to their components; patterns have none
+    if (type == NSColorTypeComponentBased && ownType == NSColorTypeCatalog)
+        return [self colorUsingColorSpaceName: NSCalibratedRGBColorSpace];
+    return nil;
+}
+
+- (NSColor *) colorUsingColorSpace: (NSColorSpace *) space {
+    switch ([space colorSpaceModel]) {
+    case NSColorSpaceModelGray:
+        return [self colorUsingColorSpaceName: NSCalibratedWhiteColorSpace];
+    case NSColorSpaceModelRGB:
+        return [self colorUsingColorSpaceName: NSCalibratedRGBColorSpace];
+    case NSColorSpaceModelCMYK:
+        return [self colorUsingColorSpaceName: NSDeviceCMYKColorSpace];
+    default:
+        return nil;
+    }
+}
+
+- (NSColorSpace *) colorSpace {
+    NSColorSpaceName name = [self colorSpaceName];
+
+    if ([name isEqualToString: NSCalibratedRGBColorSpace])
+        return [NSColorSpace genericRGBColorSpace];
+    if ([name isEqualToString: NSDeviceRGBColorSpace])
+        return [NSColorSpace deviceRGBColorSpace];
+    if ([name isEqualToString: NSCalibratedWhiteColorSpace])
+        return [NSColorSpace genericGrayColorSpace];
+    if ([name isEqualToString: NSDeviceWhiteColorSpace])
+        return [NSColorSpace deviceGrayColorSpace];
+    if ([name isEqualToString: NSDeviceCMYKColorSpace])
+        return [NSColorSpace deviceCMYKColorSpace];
+    [NSException raise: NSInternalInconsistencyException
+                format: @"%@ has no color space", self];
     return nil;
 }
 

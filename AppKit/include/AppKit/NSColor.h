@@ -29,6 +29,13 @@ typedef NSString *NSColorSpaceName;
 
 @class NSImage;
 @class NSPasteboard;
+@class NSColorSpace;
+
+typedef NS_ENUM(NSInteger, NSColorType) {
+    NSColorTypeComponentBased = 0,
+    NSColorTypePattern = 1,
+    NSColorTypeCatalog = 2,
+};
 
 @interface NSColor : NSObject <NSCopying, NSCoding> {
     NSColorListName _catalogName;
@@ -68,6 +75,39 @@ typedef NSString *NSColorSpaceName;
 
 @property(class, strong, readonly) NSColor *highlightColor;
 @property(class, strong, readonly) NSColor *shadowColor;
+
+@property(class, strong, readonly) NSColor *secondaryLabelColor;
+@property(class, strong, readonly) NSColor *tertiaryLabelColor;
+@property(class, strong, readonly) NSColor *quaternaryLabelColor;
+@property(class, strong, readonly) NSColor *placeholderTextColor;
+@property(class, strong, readonly) NSColor *windowFrameTextColor;
+@property(class, strong, readonly) NSColor *separatorColor;
+@property(class, strong, readonly) NSColor *underPageBackgroundColor;
+@property(class, strong, readonly) NSColor *findHighlightColor;
+@property(class, strong, readonly) NSColor *scrubberTexturedBackgroundColor;
+@property(class, strong, readonly) NSColor *systemRedColor;
+@property(class, strong, readonly) NSColor *systemGreenColor;
+@property(class, strong, readonly) NSColor *systemBlueColor;
+@property(class, strong, readonly) NSColor *systemOrangeColor;
+@property(class, strong, readonly) NSColor *systemYellowColor;
+@property(class, strong, readonly) NSColor *systemBrownColor;
+@property(class, strong, readonly) NSColor *systemPinkColor;
+@property(class, strong, readonly) NSColor *systemPurpleColor;
+@property(class, strong, readonly) NSColor *systemGrayColor;
+@property(class, strong, readonly) NSColor *systemTealColor;
+@property(class, strong, readonly) NSColor *systemIndigoColor;
+@property(class, strong, readonly) NSColor *systemMintColor;
+@property(class, strong, readonly) NSColor *systemCyanColor;
+@property(class, strong, readonly) NSColor *controlAccentColor;
+@property(class, strong, readonly) NSColor *textInsertionPointColor;
+@property(class, strong, readonly) NSColor *systemFillColor;
+@property(class, strong, readonly) NSColor *secondarySystemFillColor;
+@property(class, strong, readonly) NSColor *tertiarySystemFillColor;
+@property(class, strong, readonly) NSColor *quaternarySystemFillColor;
+@property(class, strong, readonly) NSColor *quinarySystemFillColor;
+
+@property(readonly) NSColorType type;
+@property(readonly, strong) NSColorSpace *colorSpace;
 
 @property(class, strong, readonly) NSColor *alternateSelectedControlColor;
 @property(class, strong, readonly) NSArray<NSColor *> *controlAlternatingRowBackgroundColors;
@@ -268,6 +308,8 @@ typedef NSString *NSColorSpaceName;
 
 - (NSColor *) colorWithAlphaComponent: (CGFloat) alpha;
 
+- (NSColor *) colorUsingType: (NSColorType) type;
+- (NSColor *) colorUsingColorSpace: (NSColorSpace *) space;
 - (NSColor *) colorUsingColorSpaceName: (NSString *) colorSpace;
 - (NSColor *) colorUsingColorSpaceName: (NSString *) colorSpace
                                 device: (NSDictionary *) device;

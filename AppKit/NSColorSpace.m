@@ -28,21 +28,83 @@ NSString *const _NSColorCoreUICatalogNamePrefix =
 
 @implementation NSColorSpace
 
+// takes ownership of the CGColorSpace
++ (NSColorSpace *) _colorSpaceWithCreatedCGColorSpace: (CGColorSpaceRef) cgColorSpace {
+    NSColorSpace *result;
+
+    if (cgColorSpace == NULL)
+        return nil;
+
+    result = [[[self alloc] initWithCGColorSpace: cgColorSpace] autorelease];
+    CGColorSpaceRelease(cgColorSpace);
+    return result;
+}
+
 + (NSColorSpace *) sRGBColorSpace {
-    CGColorSpaceRef srgb = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
-    NSColorSpace *colorSpace =
-            [[[self alloc] initWithCGColorSpace: srgb] autorelease];
-    return colorSpace;
+    return [self _colorSpaceWithCreatedCGColorSpace: CGColorSpaceCreateWithName(kCGColorSpaceSRGB)];
+}
+
++ (NSColorSpace *) extendedSRGBColorSpace {
+    return [self _colorSpaceWithCreatedCGColorSpace: CGColorSpaceCreateWithName(kCGColorSpaceExtendedSRGB)]
+            ?: [self sRGBColorSpace];
+}
+
++ (NSColorSpace *) displayP3ColorSpace {
+    return [self _colorSpaceWithCreatedCGColorSpace: CGColorSpaceCreateWithName(kCGColorSpaceDisplayP3)]
+            ?: [self sRGBColorSpace];
+}
+
++ (NSColorSpace *) genericRGBColorSpace {
+    return [self _colorSpaceWithCreatedCGColorSpace: CGColorSpaceCreateWithName(kCGColorSpaceGenericRGB)]
+            ?: [self deviceRGBColorSpace];
 }
 
 + (NSColorSpace *) deviceRGBColorSpace {
-    CGColorSpaceRef device = CGColorSpaceCreateDeviceRGB();
-    NSColorSpace *result =
-            [[[self alloc] initWithCGColorSpace: device] autorelease];
+    return [self _colorSpaceWithCreatedCGColorSpace: CGColorSpaceCreateDeviceRGB()];
+}
 
-    CGColorSpaceRelease(device);
++ (NSColorSpace *) deviceGrayColorSpace {
+    return [self _colorSpaceWithCreatedCGColorSpace: CGColorSpaceCreateDeviceGray()];
+}
 
-    return result;
++ (NSColorSpace *) genericGrayColorSpace {
+    return [self _colorSpaceWithCreatedCGColorSpace: CGColorSpaceCreateWithName(kCGColorSpaceGenericGray)]
+            ?: [self deviceGrayColorSpace];
+}
+
++ (NSColorSpace *) genericGamma22GrayColorSpace {
+    return [self _colorSpaceWithCreatedCGColorSpace: CGColorSpaceCreateWithName(kCGColorSpaceGenericGrayGamma2_2)]
+            ?: [self genericGrayColorSpace];
+}
+
++ (NSColorSpace *) deviceCMYKColorSpace {
+    return [self _colorSpaceWithCreatedCGColorSpace: CGColorSpaceCreateDeviceCMYK()];
+}
+
++ (NSColorSpace *) genericCMYKColorSpace {
+    return [self deviceCMYKColorSpace];
+}
+
+- (NSColorSpaceModel) colorSpaceModel {
+    return _cgColorSpace != NULL ? (NSColorSpaceModel) CGColorSpaceGetModel(_cgColorSpace)
+                                 : NSColorSpaceModelUnknown;
+}
+
+- (NSInteger) numberOfColorComponents {
+    return _cgColorSpace != NULL ? (NSInteger) CGColorSpaceGetNumberOfComponents(_cgColorSpace) : 0;
+}
+
+- (NSString *) localizedName {
+    switch ([self colorSpaceModel]) {
+    case NSColorSpaceModelGray:
+        return @"Gray";
+    case NSColorSpaceModelRGB:
+        return @"RGB";
+    case NSColorSpaceModelCMYK:
+        return @"CMYK";
+    default:
+        return @"Unknown";
+    }
 }
 
 - initWithCGColorSpace: (CGColorSpaceRef) cgColorSpace {

@@ -20,12 +20,38 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <ApplicationServices/ApplicationServices.h>
 #import <Foundation/NSObject.h>
 
+@class NSString;
+
+// the same values as CGColorSpaceModel
+typedef NS_ENUM(NSInteger, NSColorSpaceModel) {
+    NSColorSpaceModelUnknown = -1,
+    NSColorSpaceModelGray = 0,
+    NSColorSpaceModelRGB = 1,
+    NSColorSpaceModelCMYK = 2,
+    NSColorSpaceModelLAB = 3,
+    NSColorSpaceModelDeviceN = 4,
+    NSColorSpaceModelIndexed = 5,
+    NSColorSpaceModelPatterned = 6,
+};
+
 @interface NSColorSpace : NSObject {
     CGColorSpaceRef _cgColorSpace;
 }
 
 @property(class, strong, readonly) NSColorSpace *deviceRGBColorSpace;
 @property(class, strong, readonly) NSColorSpace *sRGBColorSpace;
+@property(class, strong, readonly) NSColorSpace *extendedSRGBColorSpace;
+@property(class, strong, readonly) NSColorSpace *displayP3ColorSpace;
+@property(class, strong, readonly) NSColorSpace *genericRGBColorSpace;
+@property(class, strong, readonly) NSColorSpace *deviceGrayColorSpace;
+@property(class, strong, readonly) NSColorSpace *genericGrayColorSpace;
+@property(class, strong, readonly) NSColorSpace *genericGamma22GrayColorSpace;
+@property(class, strong, readonly) NSColorSpace *deviceCMYKColorSpace;
+@property(class, strong, readonly) NSColorSpace *genericCMYKColorSpace;
+
+@property(readonly) NSColorSpaceModel colorSpaceModel;
+@property(readonly) NSInteger numberOfColorComponents;
+@property(readonly, copy) NSString *localizedName;
 
 + (NSColorSpace *) deviceRGBColorSpace;
 
