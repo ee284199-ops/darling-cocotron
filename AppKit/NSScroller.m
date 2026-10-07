@@ -127,8 +127,8 @@ static NSAppleScrollBarVariant appleScrollBarVariant(NSScroller *self) {
     return NO;
 }
 
-- (void) setFrame: (NSRect) frame {
-    [super setFrame: frame];
+- (void) setFrameSize: (NSSize) size {
+    [super setFrameSize: size];
     [self checkSpaceForParts];
 }
 

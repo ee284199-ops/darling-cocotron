@@ -1052,14 +1052,11 @@ static inline void buildTransformsIfNeeded(NSView *self) {
     return NSMakeRect(minx, miny, maxx - minx, maxy - miny);
 }
 
-- (void) setFrame: (NSRect) frame {
-    // Cocoa does not post the notification if the frames are equal
-    // Possible that resizeSubviewsWithOldSize is not called if the sizes are
-    // equal
-    if (NSEqualRects(_frame, frame))
-        return;
-
+// Moves and resizes the view. As in AppKit, setFrameOrigin: and setFrameSize: are the
+// primitives that subclasses override, and setFrame: goes through both of them.
+- (void) _changeFrame: (NSRect) frame {
     NSSize oldSize = _bounds.size;
+    BOOL sizeChanged = !NSEqualSizes(_frame.size, frame.size);
 
     if (_bounds.size.width == 0 || _bounds.size.height == 0) {
         // No valid current bounds value - just update it to use the frame size
@@ -1079,7 +1076,7 @@ static inline void buildTransformsIfNeeded(NSView *self) {
     [_window invalidateCursorRectsForView: self]; // this also invalidates
                                                   // tracking areas
 
-    if (_autoresizesSubviews) {
+    if (_autoresizesSubviews && sizeChanged) {
         [self resizeSubviewsWithOldSize: oldSize];
     }
 
@@ -1092,24 +1089,43 @@ static inline void buildTransformsIfNeeded(NSView *self) {
 
     invalidateTransform(self);
 
-    if (_postsNotificationOnFrameChange)
+    // setFrame: posts one notification for both changes
+    if (_postsNotificationOnFrameChange && !_isSettingFrame)
+        [[NSNotificationCenter defaultCenter]
+                postNotificationName: NSViewFrameDidChangeNotification
+                              object: self];
+}
+
+- (void) setFrame: (NSRect) frame {
+    // Cocoa does not post the notification if the frames are equal
+    if (NSEqualRects(_frame, frame))
+        return;
+
+    BOOL wasSettingFrame = _isSettingFrame;
+
+    _isSettingFrame = YES;
+    [self setFrameOrigin: frame.origin];
+    [self setFrameSize: frame.size];
+    _isSettingFrame = wasSettingFrame;
+
+    if (_postsNotificationOnFrameChange && !wasSettingFrame)
         [[NSNotificationCenter defaultCenter]
                 postNotificationName: NSViewFrameDidChangeNotification
                               object: self];
 }
 
 - (void) setFrameSize: (NSSize) size {
-    NSRect frame = _frame;
+    if (NSEqualSizes(_frame.size, size))
+        return;
 
-    frame.size = size;
-    [self setFrame: frame];
+    [self _changeFrame: NSMakeRect(_frame.origin.x, _frame.origin.y, size.width, size.height)];
 }
 
 - (void) setFrameOrigin: (NSPoint) origin {
-    NSRect frame = [self frame];
+    if (NSEqualPoints(_frame.origin, origin))
+        return;
 
-    frame.origin = origin;
-    [self setFrame: frame];
+    [self _changeFrame: NSMakeRect(origin.x, origin.y, _frame.size.width, _frame.size.height)];
 }
 
 - (void) setFrameRotation: (CGFloat) angle {

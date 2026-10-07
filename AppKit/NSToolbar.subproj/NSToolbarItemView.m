@@ -71,8 +71,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     return rect;
 }
 
-- (void) setFrame: (NSRect) frame {
-    [super setFrame: frame];
+- (void) setFrameSize: (NSSize) size {
+    [super setFrameSize: size];
     if ([_toolbarItem view] != nil) {
         // Fix up the item viewWe
         NSView *view = [_toolbarItem view];

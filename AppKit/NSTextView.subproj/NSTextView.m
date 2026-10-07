@@ -3004,11 +3004,6 @@ NSString *const NSAllRomanInputSourcesLocaleIdentifier =
     [self sizeToFit];
 }
 
-- (void) setFrame: (NSRect) frame {
-    [super setFrame: frame];
-    [self _configureTextContainerSize];
-}
-
 - (void) setFrameSize: (NSSize) size {
     [super setFrameSize: size];
     [self _configureTextContainerSize];

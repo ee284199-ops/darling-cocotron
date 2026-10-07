@@ -146,6 +146,7 @@ APPKIT_EXPORT const NSViewFullScreenModeOptionKey NSFullScreenModeApplicationPre
     BOOL _wantsExtendedDynamicRangeOpenGLSurface;
     BOOL _canDrawConcurrently;
     BOOL _clipsToBounds;
+    BOOL _isSettingFrame;
 }
 
 @property(class, readonly) BOOL requiresConstraintBasedLayout;
