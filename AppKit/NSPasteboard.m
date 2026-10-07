@@ -19,6 +19,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 #import <AppKit/NSDisplay.h>
 #import <AppKit/NSPasteboard.h>
+#import <Foundation/NSAttributedString.h>
+#import <Foundation/NSURL.h>
 #import <AppKit/NSRaise.h>
 
 const NSPasteboardType NSPasteboardTypeString = @"NSStringPboardType";
@@ -186,14 +188,97 @@ const NSPasteboardReadingOptionKey
     return NO;
 }
 
-- (BOOL) canReadItemWithDataConformingToTypes:(NSArray<NSString *> *) types {
-    printf("STUB %s\n", __PRETTY_FUNCTION__);
+- (BOOL) canReadItemWithDataConformingToTypes: (NSArray<NSString *> *) types {
+    if ([self availableTypeFromArray: types] != nil)
+        return YES;
+
+    // types only lists what this process put on the pasteboard; text that
+    // another application owns has to be asked for
+    if ([types containsObject: NSPasteboardTypeString])
+        return [self stringForType: NSPasteboardTypeString] != nil;
+
     return NO;
 }
 
-- (nullable NSArray *)readObjectsForClasses:(NSArray<Class> *)classArray options:(nullable NSDictionary<NSPasteboardReadingOptionKey, id> *) options {
-    printf("STUB %s\n", __PRETTY_FUNCTION__);
-    return nil;
+// The pasteboard holds a single item, so this returns at most one object: the
+// first class in classArray that can be made from the pasteboard's contents.
+- (NSArray *) readObjectsForClasses: (NSArray<Class> *) classArray
+                            options: (NSDictionary<NSPasteboardReadingOptionKey, id> *) options
+{
+    for (Class cls in classArray) {
+        if ([cls isSubclassOfClass: [NSURL class]]) {
+            NSString *string = [self stringForType: NSPasteboardTypeURL];
+            NSURL *url = (string != nil) ? [NSURL URLWithString: string] : nil;
+
+            if (url != nil)
+                return [NSArray arrayWithObject: url];
+        } else if ([cls isSubclassOfClass: [NSString class]]) {
+            NSString *string = [self stringForType: NSPasteboardTypeString];
+
+            if (string != nil)
+                return [NSArray arrayWithObject: string];
+        } else if ([cls isSubclassOfClass: [NSAttributedString class]]) {
+            NSString *string = [self stringForType: NSPasteboardTypeString];
+
+            if (string != nil)
+                return [NSArray arrayWithObject: [[[NSAttributedString alloc] initWithString: string] autorelease]];
+        }
+    }
+
+    return [NSArray array];
+}
+
+- (BOOL) canReadObjectForClasses: (NSArray<Class> *) classArray
+                         options: (NSDictionary<NSPasteboardReadingOptionKey, id> *) options
+{
+    return [[self readObjectsForClasses: classArray options: options] count] > 0;
+}
+
+// Call clearContents first, like on macOS.
+- (BOOL) writeObjects: (NSArray<id<NSPasteboardWriting>> *) objects {
+    NSMutableDictionary *values = [NSMutableDictionary dictionary];
+
+    // the pasteboard holds a single item: the first value of each type wins
+    for (id object in objects) {
+        if ([object isKindOfClass: [NSString class]]) {
+            if (values[NSPasteboardTypeString] == nil)
+                values[NSPasteboardTypeString] = object;
+        } else if ([object isKindOfClass: [NSAttributedString class]]) {
+            if (values[NSPasteboardTypeString] == nil)
+                values[NSPasteboardTypeString] = [object string];
+        } else if ([object isKindOfClass: [NSURL class]]) {
+            NSString *string = [object absoluteString];
+
+            if (values[NSPasteboardTypeURL] == nil)
+                values[NSPasteboardTypeURL] = string;
+            if (values[NSPasteboardTypeString] == nil)
+                values[NSPasteboardTypeString] = string;
+        } else if ([object respondsToSelector: @selector(writableTypesForPasteboard:)] &&
+                   [object respondsToSelector: @selector(pasteboardPropertyListForType:)])
+        {
+            for (NSPasteboardType type in [object writableTypesForPasteboard: self]) {
+                id value = [object pasteboardPropertyListForType: type];
+
+                if (value != nil && values[type] == nil)
+                    values[type] = value;
+            }
+        }
+    }
+
+    BOOL wrote = NO;
+
+    for (NSPasteboardType type in values) {
+        id value = values[type];
+
+        if ([value isKindOfClass: [NSData class]])
+            wrote |= [self setData: value forType: type];
+        else if ([value isKindOfClass: [NSString class]])
+            wrote |= [self setString: value forType: type];
+        else
+            wrote |= [self setPropertyList: value forType: type];
+    }
+
+    return wrote;
 }
 
 @end

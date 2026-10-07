@@ -80,6 +80,7 @@ APPKIT_EXPORT const NSPasteboardReadingOptionKey
         NSPasteboardURLReadingContentsConformToTypesKey;
 
 @class NSPasteboard;
+@protocol NSPasteboardWriting;
 
 // @interface NSObject (NSPasteboard)
 @protocol NSPasteboardTypeOwner
@@ -117,17 +118,24 @@ APPKIT_EXPORT const NSPasteboardReadingOptionKey
 - (BOOL) setPropertyList: plist forType: (NSPasteboardType) type;
 - (BOOL) canReadItemWithDataConformingToTypes:(NSArray<NSString *> *) types;
 - (NSArray *)readObjectsForClasses:(NSArray<Class> *)classArray options:(NSDictionary<NSPasteboardReadingOptionKey, id> *) options;
+- (BOOL) canReadObjectForClasses: (NSArray<Class> *) classArray
+                         options: (NSDictionary<NSPasteboardReadingOptionKey, id> *) options;
+- (BOOL) writeObjects: (NSArray<id<NSPasteboardWriting>> *) objects;
 
 @end
 
 @protocol NSPasteboardReading <NSObject>
 
-// TODO
++ (NSArray<NSPasteboardType> *) readableTypesForPasteboard: (NSPasteboard *) pasteboard;
+
+@optional
+- initWithPasteboardPropertyList: propertyList ofType: (NSPasteboardType) type;
 
 @end
 
 @protocol NSPasteboardWriting <NSObject>
 
-// TODO
+- (NSArray<NSPasteboardType> *) writableTypesForPasteboard: (NSPasteboard *) pasteboard;
+- pasteboardPropertyListForType: (NSPasteboardType) type;
 
 @end
